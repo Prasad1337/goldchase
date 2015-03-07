@@ -19,17 +19,16 @@
 using namespace std;
 
 
-//Main function
+//Main
 int main(int argc, char** argv)
 {
-	//semaphore for player/process count
-	sem_t* p_sem;
+	sem_t* p_sem;	//semaphore for player/process count
 	int sem_val;
 
-	p_sem=sem_open("/gc_sem", O_RDWR,5);
+	p_sem=sem_open("/gc_sem",O_RDWR,5);
 	if(p_sem==SEM_FAILED)
 	{
-		p_sem=sem_open("/gc_sem", O_RDWR|O_CREAT|O_EXCL, S_IRUSR|S_IWUSR|S_IWGRP|S_IRGRP|S_IROTH|S_IWOTH,5);
+		p_sem=sem_open("/gc_sem",O_RDWR|O_CREAT|O_EXCL,S_IRUSR|S_IWUSR|S_IWGRP|S_IRGRP|S_IROTH|S_IWOTH,5);
 		if(p_sem==SEM_FAILED)
 		{
 			cerr << "Critical fault!" << endl;
@@ -45,7 +44,7 @@ int main(int argc, char** argv)
 	else
 	{
 		cerr<<"Too many players! Exiting.."<<endl;
-		exit(0);
+		exit(1);
 	}
 	
 		
@@ -56,7 +55,7 @@ int main(int argc, char** argv)
 	
 	//Reading map file
 	ifstream in("mymap.txt");
-	string cont((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+	string cont((istreambuf_iterator<char>(in)),istreambuf_iterator<char>());
 	in.close();
     
     //Reading number of gold drops on map
