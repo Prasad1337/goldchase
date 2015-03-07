@@ -1,5 +1,5 @@
-test_prg: test_prg.cpp libmap.a goldchase.h
-	g++ test_prg.cpp -o test_prg -L. -lmap -lpanel -lncurses
+p_goldchase: p_goldchase.cpp libmap.a goldchase.h
+	g++ p_goldchase.cpp -o p_goldchase -L. -lmap -lpanel -lncurses -lpthread -lrt
 
 libmap.a: Screen.o Map.o
 	ar -r libmap.a Screen.o Map.o
@@ -11,4 +11,4 @@ Map.o: Map.cpp
 	g++ -c Map.cpp
 
 clean:
-	rm -f Screen.o Map.o libmap.a test_prg
+	rm -f Screen.o Map.o libmap.a p_goldchase
