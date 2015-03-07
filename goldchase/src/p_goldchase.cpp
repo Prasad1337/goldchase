@@ -25,13 +25,11 @@ int main(int argc, char** argv)
 	//semaphore for player/process count
 	sem_t* p_sem;
 	int sem_val;
-	
-	int pc=5; //Number of players (player count)
 
 	p_sem=sem_open("/gc_sem", O_RDWR,5);
 	if(p_sem==SEM_FAILED)
 	{
-		p_sem=sem_open("/gc_sem", O_RDWR|O_CREAT|O_EXCL, S_IRUSR|S_IWUSR|S_IWGRP|S_IRGRP|S_IROTH|S_IWOTH, 5);
+		p_sem=sem_open("/gc_sem", O_RDWR|O_CREAT|O_EXCL, S_IRUSR|S_IWUSR|S_IWGRP|S_IRGRP|S_IROTH|S_IWOTH,5);
 		if(p_sem==SEM_FAILED)
 		{
 			cerr << "Critical fault!" << endl;
@@ -40,6 +38,7 @@ int main(int argc, char** argv)
 	}
 	else
 		p_sem=sem_open("/gc_sem",O_RDWR|O_CREAT,S_IRUSR|S_IWUSR,5);
+		
 	sem_getvalue(p_sem,&sem_val);
 	if(sem_val>0)
 		sem_wait(p_sem);
@@ -63,7 +62,7 @@ int main(int argc, char** argv)
     //Reading number of gold drops on map
     char fc=cont.c_str()[0];
     int gc=fc-'0';
-    int tot=pc+gc;
+    int tot=5+gc;
     
     
     int c=0,sc=0,ccount=0;
@@ -90,7 +89,6 @@ int main(int argc, char** argv)
 	
 	const char* px=m;
 	char map[ccount+1];
-	int pos[tot];
 	
 	//Shared Memory
 	int p_shm;
@@ -119,7 +117,7 @@ int main(int argc, char** argv)
 			cerr << "Critical fault!" << endl;
 			exit(1);
 		}
-		p_map = (int*)mmap(0, (tot*MAPSIZE), PROT_READ | PROT_WRITE, MAP_SHARED, p_shm, 0);
+		p_map = (int*)mmap(0,(tot*MAPSIZE),PROT_READ|PROT_WRITE,MAP_SHARED,p_shm,0);
 		if (p_map == MAP_FAILED) {
 			close(p_shm);
 			cerr << "Critical fault!" << endl;
@@ -128,31 +126,12 @@ int main(int argc, char** argv)
 		
 		//Random number generator
 		srand(time(NULL));
+		int tmpA[tot];
 		for(int i=0;i<tot;i++)
 		{
 			//For available number of spaces
-			int snum=rand()%sc+1;
-			//Placing into shared memory
-			p_map[i]=snum;
+			tmpA[i]=rand()%sc;
 		}
-	}
-	else
-	{
-		p_shm=shm_open("/gc_shm",O_RDWR|O_CREAT,S_IRUSR|S_IWUSR);
-		p_map = (int*)mmap(0, (tot*MAPSIZE), PROT_READ, MAP_SHARED, p_shm, 0);
-		if (map == MAP_FAILED)
-		{
-			close(p_shm);
-			cerr << "Critical fault!" << endl;
-			exit(1);
-		}
-	}
-	
-
-	
-	for(int i=0;i<11;i++)
-		cout<<p_map[i]<<endl;
-		
 		
 		int ncntr=0,scntr=0,flag=0,dc=1;
 		
@@ -161,54 +140,35 @@ int main(int argc, char** argv)
 		{
 			if(*px==' ')
 			{
-				for(int i=0;i<(tot);i++)
+				for(int i=0;i<tot;i++)
 				{
-					if(p_map[i]==scntr)
+					if(tmpA[i]==scntr)
 						flag=1;
 				}
 			
 				if(flag==1)
 				{
 					if(dc==1)
-					{
-						pos[0]=ncntr;
-						if(pl==0)
-							m[ncntr]='1';
-					}
+						p_map[0]=ncntr;
+						
 					else if(dc==2)
-					{
-						pos[1]=ncntr;
-						if(pl==1)
-							m[ncntr]='2';
-					}
+						p_map[1]=ncntr;
+						
 					else if(dc==3)
-					{
-						pos[2]=ncntr;
-						if(pl==2)
-							m[ncntr]='3';
-					}
+						p_map[2]=ncntr;
+						
 					else if(dc==4)
-					{
-						pos[3]=ncntr;
-						if(pl==3)
-							m[ncntr]='4';
-					}
+						p_map[3]=ncntr;
+						
 					else if(dc==5)
-					{
-						pos[4]=ncntr;
-						if(pl==4)
-							m[ncntr]='5';
-					}
+						p_map[4]=ncntr;
+						
 					else if(dc>5 && dc<tot)
-					{
-						pos[dc-1]=ncntr;
-						m[ncntr]='F';
-					}
+						p_map[dc-1]=ncntr;
+						
 					else if(dc==tot)
-					{
-						m[ncntr]='G';
-						pos[dc-1]=ncntr;
-					}
+						p_map[dc-1]=ncntr;
+						
 					
 					dc++;
 					flag=0;
@@ -219,6 +179,66 @@ int main(int argc, char** argv)
 		
 			++ncntr;
 			++px;
+		}
+	}
+	else
+	{
+		p_shm=shm_open("/gc_shm",O_RDWR|O_CREAT,S_IRUSR|S_IWUSR);
+		p_map = (int*)mmap(0,(tot*MAPSIZE),PROT_READ|PROT_WRITE,MAP_SHARED,p_shm,0);
+		if (map == MAP_FAILED)
+		{
+			close(p_shm);
+			cerr << "Critical fault!" << endl;
+			exit(1);
+		}
+	}
+	
+		const char* px1=m;
+		int ncntr=0,flag=0,dc=1;
+		
+		//Random drop placement generator
+		while(*px1!='\0')
+		{
+			if(*px1==' ')
+			{
+				for(int i=0;i<tot;i++)
+				{
+					if(p_map[i]==ncntr)
+						flag=1;
+				}
+			
+				if(flag==1)
+				{
+					if(dc==1 && pl==0)
+							m[ncntr]='1';
+							
+					else if(dc==2 && pl==1)
+							m[ncntr]='2';
+							
+					else if(dc==3 && pl==2)
+							m[ncntr]='3';
+							
+					else if(dc==4 && pl==3)
+							m[ncntr]='4';
+							
+					else if(dc==5 && pl==4)
+							m[ncntr]='5';
+							
+					else if(dc>5 && dc<tot)
+						m[ncntr]='F';
+						
+					else if(dc==tot)
+						m[ncntr]='G';
+						
+					
+					dc++;
+					flag=0;
+				}
+			
+			}
+		
+			++ncntr;
+			++px1;
 		}
 
 		
@@ -247,7 +267,6 @@ int main(int argc, char** argv)
 				case 'G':	*mp=G_GOLD;
 							break;
 				case 'F':	*mp=G_FOOL;
-				
 							break;
 			}
 		
@@ -255,13 +274,7 @@ int main(int argc, char** argv)
 			++mp;
 		}
 	
-	cout<<endl<<endl;
-	for(int i=0;i<11;i++)
-		cout<<p_map[i]<<endl;
-		
-	while(1!=2)	sleep(1);
 	
-	/*
 	int a=0;
 	//Load map
 	Map goldMine(map,26,80);
@@ -270,110 +283,110 @@ int main(int argc, char** argv)
 	{
 		a=goldMine.getKey();
 		
-		if(a=='h' && map[pos[pl]-1]!=G_WALL)
+		if(a=='h' && map[p_map[pl]-1]!=G_WALL)
 		{
-			if(map[pos[pl]-1] & G_FOOL)
+			if(map[p_map[pl]-1] & G_FOOL)
 				goldMine.postNotice("Fool's Gold Found!");
-			else if(map[pos[pl]-1] & G_GOLD)
+			else if(map[p_map[pl]-1] & G_GOLD)
 				goldMine.postNotice("You Won! Exit map to finish..");
-			else if(map[pos[pl]-1] & G_ANYP)
+			else if(map[p_map[pl]-1] & G_ANYP)
 				continue;
 			
-			map[pos[pl]]=0;
-			--pos[pl];
+			map[p_map[pl]]=0;
+			--p_map[pl];
 			
 			switch(pl)
 			{
-				case 0:	map[pos[pl]]=G_PLR0;
+				case 0:	map[p_map[pl]]=G_PLR0;
 						break;
-				case 1:	map[pos[pl]]=G_PLR1;
+				case 1:	map[p_map[pl]]=G_PLR1;
 						break;
-				case 2:	map[pos[pl]]=G_PLR2;
+				case 2:	map[p_map[pl]]=G_PLR2;
 						break;
-				case 3:	map[pos[pl]]=G_PLR3;
+				case 3:	map[p_map[pl]]=G_PLR3;
 						break;
-				case 4:	map[pos[pl]]=G_PLR4;
+				case 4:	map[p_map[pl]]=G_PLR4;
 						break;
 			}
 		}
 		
-		else if(a=='j' && map[pos[pl]+80]!=G_WALL)
+		else if(a=='j' && map[p_map[pl]+80]!=G_WALL)
 		{
-			if(map[pos[pl]+80] & G_FOOL)
+			if(map[p_map[pl]+80] & G_FOOL)
 				goldMine.postNotice("Fool's Gold Found!");
-			else if(map[pos[pl]+80] & G_GOLD)
+			else if(map[p_map[pl]+80] & G_GOLD)
 				goldMine.postNotice("You Won! Exit map to finish..");
-			else if(map[pos[pl]+80] & G_ANYP)
+			else if(map[p_map[pl]+80] & G_ANYP)
 				continue;
 			
-			map[pos[pl]]=0;
-			pos[pl]+=80;
+			map[p_map[pl]]=0;
+			p_map[pl]+=80;
 
 			switch(pl)
 			{
-				case 0:	map[pos[pl]]=G_PLR0;
+				case 0:	map[p_map[pl]]=G_PLR0;
 						break;
-				case 1:	map[pos[pl]]=G_PLR1;
+				case 1:	map[p_map[pl]]=G_PLR1;
 						break;
-				case 2:	map[pos[pl]]=G_PLR2;
+				case 2:	map[p_map[pl]]=G_PLR2;
 						break;
-				case 3:	map[pos[pl]]=G_PLR3;
+				case 3:	map[p_map[pl]]=G_PLR3;
 						break;
-				case 4:	map[pos[pl]]=G_PLR4;
+				case 4:	map[p_map[pl]]=G_PLR4;
 						break;
 			}
 		}
 		
-		else if(a=='k' && map[pos[pl]-80]!=G_WALL)
+		else if(a=='k' && map[p_map[pl]-80]!=G_WALL)
 		{
-			if(map[pos[pl]-80] & G_FOOL)
+			if(map[p_map[pl]-80] & G_FOOL)
 				goldMine.postNotice("Fool's Gold Found!");
-			else if(map[pos[pl]-80] & G_GOLD)
+			else if(map[p_map[pl]-80] & G_GOLD)
 				goldMine.postNotice("You Won! Exit map to finish..");
-			else if(map[pos[pl]-80] & G_ANYP)
+			else if(map[p_map[pl]-80] & G_ANYP)
 				continue;
 				
-			map[pos[pl]]=0;
-			pos[pl]-=80;
+			map[p_map[pl]]=0;
+			p_map[pl]-=80;
 
 			switch(pl)
 			{
-				case 0:	map[pos[pl]]=G_PLR0;
+				case 0:	map[p_map[pl]]=G_PLR0;
 						break;
-				case 1:	map[pos[pl]]=G_PLR1;
+				case 1:	map[p_map[pl]]=G_PLR1;
 						break;
-				case 2:	map[pos[pl]]=G_PLR2;
+				case 2:	map[p_map[pl]]=G_PLR2;
 						break;
-				case 3:	map[pos[pl]]=G_PLR3;
+				case 3:	map[p_map[pl]]=G_PLR3;
 						break;
-				case 4:	map[pos[pl]]=G_PLR4;
+				case 4:	map[p_map[pl]]=G_PLR4;
 						break;
 			}
 		}
 		
-		else if(a=='l' && map[pos[pl]+1]!=G_WALL)
+		else if(a=='l' && map[p_map[pl]+1]!=G_WALL)
 		{
-			if(map[pos[pl]+1] & G_FOOL)
+			if(map[p_map[pl]+1] & G_FOOL)
 				goldMine.postNotice("Fool's Gold Found!");
-			else if(map[pos[pl]+1] & G_GOLD)
+			else if(map[p_map[pl]+1] & G_GOLD)
 				goldMine.postNotice("You Won! Exit map to finish..");
-			else if(map[pos[pl]+1] & G_ANYP)
+			else if(map[p_map[pl]+1] & G_ANYP)
 				continue;
 			
-			map[pos[pl]]=0;
-			++pos[pl];
+			map[p_map[pl]]=0;
+			++p_map[pl];
 
 			switch(pl)
 			{
-				case 0:	map[pos[pl]]=G_PLR0;
+				case 0:	map[p_map[pl]]=G_PLR0;
 						break;
-				case 1:	map[pos[pl]]=G_PLR1;
+				case 1:	map[p_map[pl]]=G_PLR1;
 						break;
-				case 2:	map[pos[pl]]=G_PLR2;
+				case 2:	map[p_map[pl]]=G_PLR2;
 						break;
-				case 3:	map[pos[pl]]=G_PLR3;
+				case 3:	map[p_map[pl]]=G_PLR3;
 						break;
-				case 4:	map[pos[pl]]=G_PLR4;
+				case 4:	map[p_map[pl]]=G_PLR4;
 						break;
 			}
 		}
@@ -381,7 +394,7 @@ int main(int argc, char** argv)
 		goldMine.drawMap();
 		
 	}while(a!='Q');
-	*/
+	
 	
 	sem_post(p_sem);
 	sem_getvalue(p_sem,&sem_val);
