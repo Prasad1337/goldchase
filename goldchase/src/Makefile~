@@ -1,3 +1,5 @@
+all: p_goldchase
+
 p_goldchase: p_goldchase.cpp libmap.a goldchase.h
 	g++ p_goldchase.cpp -o p_goldchase -L. -lmap -lpanel -lncurses -lpthread -lrt
 
