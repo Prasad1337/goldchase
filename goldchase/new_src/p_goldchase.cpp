@@ -16,7 +16,6 @@
 
 #define MAPSIZE (sizeof(int))
 
-
 //Standard namespace convention
 using namespace std;
 
@@ -279,7 +278,7 @@ int main(int argc, char** argv)
 	int a=0;
 	//Load map
 	Map goldMine(map,26,80);
-	//goldMine.postNotice("Game Start");
+	goldMine.postNotice("Game Start");
 	do
 	{
 		a=goldMine.getKey();
@@ -373,7 +372,7 @@ int main(int argc, char** argv)
 				goldMine.postNotice("You Won! Exit map to finish..");
 			else if(map[p_map[pl]+1] & G_ANYP)
 				continue;
-			
+		
 			map[p_map[pl]]=0;
 			++p_map[pl];
 
