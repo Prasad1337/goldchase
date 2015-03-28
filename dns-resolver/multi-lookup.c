@@ -4,18 +4,10 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <string.h>
 
 #include "multi-lookup.h"
-
-
-//Macros
-#define numCPU sysconf(_SC_NPROCESSORS_ONLN)	//Identifying number of CPU cores
-#define MAX_INPUT_FILES 10
-#define MIN_RESOLVER_THREADS 2
-#define MAX_RESOLVER_THREADS numCPU
-#define MAX_NAME_LENGTH 1025
-#define MAX_IP_LENGTH INET6_ADDRSTRLEN
 
 
 //Main
@@ -25,6 +17,12 @@ int main(int argc, char* argv[])
 	const char *inFiles[9];
 	const char *outFile;
 	int numFiles=0;
+	int NUM_THREADS;
+	
+	if(MAX_RESOLVER_THREADS<MIN_RESOLVER_THREADS)
+		NUM_THREADS=MIN_RESOLVER_THREADS;
+	else
+		NUM_THREADS=MAX_RESOLVER_THREADS;
 
 	if(argc==1)
 		printf("No arguments issued! Please try again...\n");
