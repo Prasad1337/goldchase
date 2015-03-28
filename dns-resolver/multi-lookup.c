@@ -11,10 +11,10 @@
 
 
 //Main
-int main(int argc, char* argv[])
+int main(int argc, char** argv)
 {
-	const char *fileNames[10];
-	const char *inFiles[9];
+	const char **fileNames;
+	const char **inFiles;
 	const char *outFile;
 	int numFiles=0;
 	int NUM_THREADS;
