@@ -13,8 +13,8 @@
 //Main
 int main(int argc, char** argv)
 {
-	const char **fileNames;
-	const char **inFiles;
+	const char *fileNames[10];
+	const char *inFiles[9];
 	const char *outFile;
 	int numFiles=0;
 	int NUM_THREADS;
@@ -35,6 +35,15 @@ int main(int argc, char** argv)
 			fileNames[numFiles]=argv[i];
 		}
 		numFiles--;
+
+		for(i=0;i<=numFiles;i++)
+		{
+			if(access(fileNames[i],F_OK)==-1)
+			{
+			    printf("FILE: %s does not exist! Please try again...\n",fileNames[i]);
+			    return EXIT_FAILURE;
+			}
+		}
 
 		outFile=fileNames[numFiles];
 
