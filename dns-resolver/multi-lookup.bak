@@ -1,67 +1,271 @@
 //
-//Pradyumna Kamat : pkamat (Prasad1337)
+// Pradyumna Kamat : pkamat (Prasad1337)
 //
+
 
 //Header file includes
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <unistd.h>
 #include <pthread.h>
-
+#include <unistd.h>
 #include "multi-lookup.h"
 
 
-//Main
+pthread_mutex_t q_mutex;
+pthread_mutexattr_t q_attr;
+
+pthread_mutex_t out_mutex;
+pthread_mutexattr_t out_attr;
+
+pthread_mutex_t in_mutex;
+pthread_mutexattr_t in_attr;
+
+
+FILE* outF;
+queue Q;
+int in_files=0;
+
+
+//Function prototypes
+void* read_in_file(char*);
+void* resolve_domain(void*);
+
+
 int main(int argc, char** argv)
 {
-	const char *fileNames[10];	//upto 10 arguments
-	const char *inFiles[9];
-	const char *outFile;
-	int numFiles=0;
-	int NUM_THREADS;
-	
-	if(MAX_RESOLVER_THREADS<MIN_RESOLVER_THREADS)
-		NUM_THREADS=MIN_RESOLVER_THREADS;
-	else
-		NUM_THREADS=MAX_RESOLVER_THREADS;
+    const int qSize = QUEUE_SIZE;
+    outF = NULL;
+    int num_in_files = argc-2;
+    int rc;
+    long t;
+    
+    pthread_t file_threads[num_in_files];
+    pthread_t resolver_threads[MAX_RESOLVER_THREADS];
 
-	if(argc==1)
-	{
-		printf("No arguments issued! Please try again...\n");
+	pthread_mutexattr_settype(&q_attr, PTHREAD_MUTEX_ERRORCHECK);
+	pthread_mutex_init(&q_mutex, &q_attr);
+
+	pthread_mutexattr_settype(&out_attr, PTHREAD_MUTEX_ERRORCHECK);
+	pthread_mutex_init(&out_mutex, &out_attr);
+	
+	pthread_mutexattr_settype(&in_attr, PTHREAD_MUTEX_ERRORCHECK);
+	pthread_mutex_init(&in_mutex, &in_attr);
+
+	
+	/* Check Arguments */
+	if(argc < MIN_ARGS){
+		fprintf(stderr, "Too few arguments: %d\n", (argc - 1));
+		fprintf(stderr, "Usage:\n %s %s\n", argv[0], USAGE);
 		return EXIT_FAILURE;
 	}
-	else
-	{
-		int i;
+	
+    if(argc > MAX_INPUT_FILES+1){
+		fprintf(stderr, "Too many arguments: %d\n", (argc - 1));
+		fprintf(stderr, "Usage:\n %s %s\n", argv[0], USAGE);
+		return EXIT_FAILURE;
+    }
 
-		for(i=1;i<argc;i++,numFiles++)
-		{
-			fileNames[numFiles]=argv[i];
+    /* Open Output File */
+    outF = fopen(argv[(argc-1)], "w");
+    if(!outF){
+		perror("Error Opening Output File\n");
+		return EXIT_FAILURE;
+    }
+
+    /* Initialize Queue */
+    if(queue_init(&Q, qSize) == QUEUE_FAILURE)
+    {
+		fprintf(stderr, "ERROR: queue_init failed!\n");
+		return EXIT_FAILURE;
+    }
+    
+    
+    /* Loop Through Input Files */
+    for(t=0; t<num_in_files; t++)
+    { 
+		//create a thread to read input files
+		rc = pthread_create(&(file_threads[t]), NULL, read_in_file, argv[t+1]);
+		if (rc)
+		{ //couldn't create thread successfully
+			fprintf(stderr, "ERROR: return code from pthread_create() is %d\n", rc);
+			return EXIT_FAILURE;
 		}
-
-		pthread_t res_threads[NUM_THREADS];
-		pthread_t req_threads[numFiles];
-		numFiles--;
-
-		for(i=0;i<=numFiles;i++)
-		{
-			if(access(fileNames[i],F_OK)==-1)
-			{
-			    printf("FILE: %s does not exist! Please try again...\n",fileNames[i]);
-			    return EXIT_FAILURE;
-			}
-		}
-
-		outFile=fileNames[numFiles];
-
-		for(i=0;i<numFiles;i++)
-			inFiles[i]=fileNames[i];
-
-
-
 	}
+	
+	/* Begin resolver threads */
+	for(t=0; t<MAX_RESOLVER_THREADS; t++)
+	{ 
+		//create a resolver thread 
+		rc = pthread_create(&(resolver_threads[t]), NULL, resolve_domain, NULL);
+		if (rc)
+		{ //couldn't create thread successfully
+			fprintf(stderr, "ERROR: return code from pthread_create() is %d\n", rc);
+			return EXIT_FAILURE;
+		}
+	}
+	
 
-	return EXIT_SUCCESS;
+    /* Wait for All Theads to Finish */
+    for(t=0;t<num_in_files;t++)
+    {
+		pthread_join(file_threads[t], NULL);
+    }
+    //the file threads have completed - change in_files to TRUE
+    pthread_mutex_lock(&in_mutex);
+		in_files=1; //all files are not read or the queue is not empty
+	pthread_mutex_unlock(&in_mutex);
+    
+    for(t=0;t<MAX_RESOLVER_THREADS;t++)
+    {
+		pthread_join(resolver_threads[t], NULL);
+    }
+    
+    printf("All of the threads were completed!\n");
+	fclose(outF); //close the output file when all the threads are done with it
+	
+    queue_cleanup(&Q); //cleanup queue
+
+	//clean up locks
+	pthread_mutex_destroy(&q_mutex);
+	pthread_mutex_destroy(&out_mutex);
+	pthread_mutex_destroy(&in_mutex);
+
+    return EXIT_SUCCESS;
+}
+
+
+void* read_in_file(char* file_name)
+{
+    /* Setup Local Vars */
+    FILE* inputfp = NULL;
+	char* hostname;
+	char errorstr[SBUFSIZE]; 
+	
+	 
+	/* Open Input File */
+	inputfp = fopen(file_name, "r");
+	if(!inputfp)
+	{
+		sprintf(errorstr, "Error Opening Input File: %s", file_name);
+		perror(errorstr);
+		//fprintf(stderr, "Error Opening Input File: %s", file_name);
+	}
+	
+	//malloc hostname for the first time for storage
+	hostname = (char*)malloc((MAX_NAME_LENGTH+1)*sizeof(char));
+	
+	/* Read Each File and Process*/
+	while(fscanf(inputfp, INPUTFS, hostname) > 0){
+		
+		/* Write each domain to the queue */
+		pthread_mutex_lock(&q_mutex); //lock the queue
+		
+		//If a thread tries to write to the queue but finds that it is full, it should sleep for a random period of time between 0 and 100 microseconds
+		if(queue_is_full(&Q))
+		{
+			pthread_mutex_unlock(&q_mutex); //unlock the queue so stuff can be taken out of it
+			/* Sleep for 0 to 100 uSeconds */
+			usleep(rand()%100);
+			pthread_mutex_lock(&q_mutex); //relock the queue for pushing
+		}
+		
+		
+		if(queue_push(&Q, hostname) == QUEUE_FAILURE) //push hostname onto the queue
+		{
+			fprintf(stderr, "ERROR: queue_push failed with value: %s\n", hostname);
+		}
+		pthread_mutex_unlock(&q_mutex); //unlock the queue
+		
+		//create a new pointer for the mutex unlock process
+		hostname = (char*)malloc((MAX_NAME_LENGTH+1)*sizeof(char));
+	 }
+	 
+	 //after we're done reading the file, close it
+	 fclose(inputfp);
+    
+    free(hostname); //free the local chunk we have leftover
+    hostname=NULL;
+    
+    /* Exit, Returning NULL*/
+    pthread_exit(NULL);
+    return NULL;
+}
+
+
+void* resolve_domain(void* params)
+{	
+	char *hostname;
+    char firstipstr[INET6_ADDRSTRLEN];
+	int queue_is_not_empty = 0; //set queue to be empty unless we hear otherwise
+	int continue_looping = 0; //don't loop by default
+	
+	pthread_mutex_lock(&q_mutex);
+		queue_is_not_empty = !queue_is_empty(&Q); //check to see if the queue is empty - must lock for this behavior
+	pthread_mutex_unlock(&q_mutex);
+	
+	pthread_mutex_lock(&in_mutex);
+		continue_looping = (!in_files)||(queue_is_not_empty); //all files are not read or the queue is not empty
+	pthread_mutex_unlock(&in_mutex);
+	
+	while(continue_looping)
+	{
+		pthread_mutex_lock(&q_mutex);
+		if((hostname = (char*)queue_pop(&Q)) == NULL) //pop off the hostname into the queue
+		{ //if it errored out
+			//fprintf(stderr, "ERROR: queue_pop failed with value: %s\n", hostname);
+			pthread_mutex_unlock(&q_mutex); //unlock the queue for others to use
+		}
+		else
+		{	//if it didn't error out, if something actually did pop off the queue
+			pthread_mutex_unlock(&q_mutex);
+			
+			// Lookup hostname and get IP string 
+			if(dnslookup(hostname, firstipstr, sizeof(firstipstr)) == UTIL_FAILURE)
+			{
+				fprintf(stderr, "dnslookup error: %s\n", hostname);
+				strncpy(firstipstr, "", sizeof(firstipstr)); //copy a NULL value to the IP string
+			}
+			
+			//WRITE RESULT TO THE OUTPUT FILE
+			pthread_mutex_lock(&out_mutex); //lock the output file
+				fprintf(outF, "%s,%s\n", hostname, firstipstr);
+			pthread_mutex_unlock(&out_mutex); //unlock the output file
+			
+			free(hostname); //free this chunk of memory from the queue if the pop was successful
+			hostname = NULL;
+		}
+			
+		//check to see if the while loop should continue
+		pthread_mutex_lock(&q_mutex);
+			queue_is_not_empty = !queue_is_empty(&Q); //check to see if the queue is empty - must lock for this behavior
+		pthread_mutex_unlock(&q_mutex);
+		pthread_mutex_lock(&in_mutex);
+			continue_looping = (!in_files)||(queue_is_not_empty); //all files are not read or the queue is not empty
+		pthread_mutex_unlock(&in_mutex);
+		
+	}
+	
+	pthread_mutex_lock(&q_mutex); //lock the queue
+	/*if(queue_is_empty(&Q))
+	{*/
+		//fprintf(stderr, "Queue is empty\n");
+		pthread_mutex_unlock(&q_mutex); //unlock the queue for others to use
+		pthread_exit(NULL); //Exit, Returning NULL
+		return NULL;
+	//}
+	/*else //this is where we error out if there's stuff in the queue - we shouldn't get here based on the while loop
+	{
+		fprintf(stderr, "Queue is NOT empty - THIS IS A PROBLEM\n");
+		pthread_mutex_unlock(&q_mutex); //unlock the queue for others to use
+		pthread_exit(EXIT_FAILURE); //Exit, RETURN AN ERROR CODE
+		return EXIT_FAILURE;
+	}*/
+	
+	//this should never be reached!!! - it's here JIC	
+	pthread_mutex_unlock(&q_mutex); //unlock the queue for others to use
+	/* Exit, Returning NULL*/ 
+    pthread_exit(NULL);
+    return NULL;
 }
