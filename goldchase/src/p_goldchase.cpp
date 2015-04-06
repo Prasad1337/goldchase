@@ -32,6 +32,7 @@ void termHandler(int);	//Signal Handler
 sem_t* p_sem;	//semaphore for player/process count
 int sem_val;
 int p_shm;	//shared memory
+int pl=-1;	//Player error [error case by default]
 
 
 //Main
@@ -70,7 +71,7 @@ int main(int argc, char** argv)
 	
 		
 	//Initializing player number
-	int pl=0;
+	pl=0;
 	if(argv[1])
 		pl=atoi(argv[1])-1;
 	
@@ -297,9 +298,12 @@ int main(int argc, char** argv)
 	int a=0;
 	//Load map
 	Map goldMine(map,26,80);
-	goldMine.postNotice("Game Start");
+	//goldMine.postNotice("Game Start");
 	do
 	{
+		/*if(goldMine.getKey())
+
+*/
 		a=goldMine.getKey();
 		
 		if(a=='h' && map[p_map[pl]-1]!=G_WALL)
@@ -311,7 +315,7 @@ int main(int argc, char** argv)
 			else if(map[p_map[pl]-1] & G_ANYP)
 				continue;
 			
-			map[p_map[pl]]=0;
+			map[p_map[pl]]=0x00;
 			--p_map[pl];
 			
 			switch(pl)
@@ -338,7 +342,7 @@ int main(int argc, char** argv)
 			else if(map[p_map[pl]+80] & G_ANYP)
 				continue;
 			
-			map[p_map[pl]]=0;
+			map[p_map[pl]]=0x00;
 			p_map[pl]+=80;
 
 			switch(pl)
@@ -365,7 +369,7 @@ int main(int argc, char** argv)
 			else if(map[p_map[pl]-80] & G_ANYP)
 				continue;
 				
-			map[p_map[pl]]=0;
+			map[p_map[pl]]=0x00;
 			p_map[pl]-=80;
 
 			switch(pl)
@@ -392,7 +396,7 @@ int main(int argc, char** argv)
 			else if(map[p_map[pl]+1] & G_ANYP)
 				continue;
 		
-			map[p_map[pl]]=0;
+			map[p_map[pl]]=0x00;
 			++p_map[pl];
 
 			switch(pl)
