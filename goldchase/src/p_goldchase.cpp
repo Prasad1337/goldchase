@@ -10,10 +10,13 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <string.h>
+#include <csignal>
 
 #include "goldchase.h"
 #include "Map.h"
 
+
+//Macros
 #define MAPSIZE (sizeof(int))
 
 
@@ -21,12 +24,28 @@
 using namespace std;
 
 
+//Function prototype
+void termHandler(int);	//Signal Handler
+
+
+//Global Variables
+sem_t* p_sem;	//semaphore for player/process count
+int sem_val;
+int p_shm;	//shared memory
+
+
 //Main
 int main(int argc, char** argv)
 {
-	sem_t* p_sem;	//semaphore for player/process count
-	int sem_val;
 
+	//Signals
+	signal(SIGTERM,termHandler);
+	signal(SIGINT,termHandler);
+	signal(SIGHUP,termHandler);
+	signal(SIGTSTP,termHandler);
+
+	
+	//Semaphore
 	p_sem=sem_open("/gc_sem",O_RDWR,5);
 	if(p_sem==SEM_FAILED)
 	{
@@ -92,7 +111,6 @@ int main(int argc, char** argv)
 	char map[ccount+1];
 	
 	//Shared Memory
-	int p_shm;
 	int* p_map;
 	int result;
 	p_shm=shm_open("/gc_shm", O_RDWR,S_IRUSR|S_IWUSR);
@@ -399,6 +417,8 @@ int main(int argc, char** argv)
 	
 	sem_post(p_sem);
 	sem_getvalue(p_sem,&sem_val);
+	
+	//Last user out
 	if(sem_val>=5)
 	{
 		sem_close(p_sem);
@@ -409,4 +429,29 @@ int main(int argc, char** argv)
 	}
 	
 	return 0;
+
+}
+
+
+//Signal Handler
+void termHandler(int signum)
+{
+	endwin();	//Destroy the map
+
+	sem_post(p_sem);
+	sem_getvalue(p_sem,&sem_val);
+
+	//Last user out
+	if(sem_val>=5)
+	{
+		fflush(stdout);
+
+		sem_close(p_sem);
+		sem_unlink("/gc_sem");
+		
+		close(p_shm);
+		shm_unlink("/gc_shm");
+	}
+
+	exit(signum);
 }
