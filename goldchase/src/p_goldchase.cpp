@@ -32,7 +32,7 @@ void termHandler(int);	//Signal Handler
 sem_t* p_sem;	//semaphore for player/process count
 int sem_val;
 int p_shm;	//shared memory
-int pl=-1;	//Player error [error case by default]
+int pl=0;	//Player number [Player #1 by default]
 
 
 //Main
@@ -71,9 +71,20 @@ int main(int argc, char** argv)
 	
 		
 	//Initializing player number
-	pl=0;
 	if(argv[1])
-		pl=atoi(argv[1])-1;
+	{
+		int plnum=atoi(argv[1])-1;
+		if(plnum<=4)
+		{
+			pl=plnum;
+			pid_t plid=getpid();
+		}
+		else
+		{
+			cerr<<"Maximum Player #: 5"<<endl;
+			exit(1);
+		}
+	}
 	
 	//Reading map file
 	ifstream in("mymap.txt");

@@ -1,10 +1,14 @@
-#include<ncurses.h>
-#include<panel.h>
-#include<cstdlib>
-#include<cstring>
-#include<utility> //for std::pair
-#include<iostream>
-#include<stdexcept>
+#include <ncurses.h>
+#include <panel.h>
+#include <cstdlib>
+#include <cstring>
+#include <utility> //for std::pair
+#include <iostream>
+#include <stdexcept>
+/*#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <fcntl.h>*/
 
 #include"goldchase.h"
 #include"Screen.h"
@@ -40,6 +44,27 @@ char Map::operator()(int y, int x)
 //Draw and refresh map from memory array
 void Map::drawMap()
 {
+  /*int* p_map;
+  int result;
+  int p_shm=shm_open("/gc_shm", O_RDWR,S_IRUSR|S_IWUSR);
+  if(p_shm==-1)
+  {
+    p_shm=shm_open("/gc_shm", O_RDWR|O_CREAT|O_EXCL, S_IRUSR|S_IWUSR|S_IWGRP|S_IRGRP|S_IROTH|S_IWOTH);
+    if(p_shm==-1)
+    {
+      //cerr << "Critical fault!" << endl;
+      exit(1);
+
+      p_map = (int*)mmap(0,(11*sizeof(int)),PROT_READ|PROT_WRITE,MAP_SHARED,p_shm,0);
+      if (p_map == MAP_FAILED) {
+        close(p_shm);
+        //cerr << "Critical fault!" << endl;
+        exit(1);
+      }
+    }
+  }*/
+
+
   Map& mymap=*this; //ease referencing ourself
   bool upper, lower, left, right;
   for(int y=0; y<mapHeight; ++y)
@@ -47,6 +72,7 @@ void Map::drawMap()
     for(int x=0; x<mapWidth; ++x)
     {
       char ch=mymap(y,x);
+      //int pos=(((y-1)*80)+x+1);
 
       //Draw an empty square
       if(ch==0)
@@ -108,9 +134,10 @@ void Map::drawMap()
       }//end if ch & G_WALL
 
       //Draw gold
-      if(ch & G_GOLD || ch & G_FOOL)
+      if((ch & G_GOLD || ch & G_FOOL))
       {
-        theMap.plot(y,x,'G',COLOR_PAIR(Screen::c_gold));
+        //if(p_map[5]==pos || p_map[6]==pos || p_map[7]==pos || p_map[8]==pos || p_map[9]==pos || p_map[10]==pos)
+          theMap.plot(y,x,'G',COLOR_PAIR(Screen::c_gold));
       }
 
       //Draw player
