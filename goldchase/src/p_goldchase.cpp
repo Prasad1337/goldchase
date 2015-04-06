@@ -26,6 +26,7 @@ using namespace std;
 
 //Function prototype
 void termHandler(int);	//Signal Handler
+void sync(int);	//SIGUSR1 Handler [for map sync]
 
 
 //Global Variables
@@ -33,6 +34,8 @@ sem_t* p_sem;	//semaphore for player/process count
 int sem_val;
 int p_shm;	//shared memory
 int pl=0;	//Player number [Player #1 by default]
+char map[2080];	//map grid
+int mdump[11];	//local map placeholder
 
 
 //Main
@@ -44,6 +47,8 @@ int main(int argc, char** argv)
 	signal(SIGINT,termHandler);
 	signal(SIGHUP,termHandler);
 	signal(SIGTSTP,termHandler);
+
+	signal(SIGUSR1,sync);
 
 	
 	//Semaphore
@@ -120,8 +125,7 @@ int main(int argc, char** argv)
 	}
 	
 	const char* px=m;
-	char map[ccount+1];
-	
+
 	//Shared Memory
 	int* p_map;
 	int result;
@@ -180,25 +184,46 @@ int main(int argc, char** argv)
 				if(flag==1)
 				{
 					if(dc==1)
+					{
 						p_map[0]=ncntr;
+						mdump[0]=ncntr;
+					}
 						
 					else if(dc==2)
+					{
 						p_map[1]=ncntr;
+						mdump[1]=ncntr;
+					}
 						
 					else if(dc==3)
+					{
 						p_map[2]=ncntr;
+						mdump[2]=ncntr;
+					}
 						
 					else if(dc==4)
+					{
 						p_map[3]=ncntr;
+						mdump[3]=ncntr;
+					}
 						
 					else if(dc==5)
+					{
 						p_map[4]=ncntr;
+						mdump[4]=ncntr;
+					}
 						
 					else if(dc>5 && dc<tot)
+					{
 						p_map[dc-1]=ncntr;
+						mdump[dc-1]=ncntr;
+					}
 						
 					else if(dc==tot)
+					{
 						p_map[dc-1]=ncntr;
+						mdump[dc=1]=ncntr;
+					}
 						
 					
 					dc++;
@@ -212,6 +237,7 @@ int main(int argc, char** argv)
 			++px;
 		}
 	}
+
 	else
 	{
 		p_shm=shm_open("/gc_shm",O_RDWR|O_CREAT,S_IRUSR|S_IWUSR);
@@ -223,98 +249,97 @@ int main(int argc, char** argv)
 			exit(1);
 		}
 	}
-	
-		const char* px1=m;
-		int ncntr=0,flag=0,dc=1;
-		
-		//Random drop placement generator
-		while(*px1!='\0')
-		{
-			if(*px1==' ')
-			{
-				for(int i=0;i<tot;i++)
-				{
-					if(p_map[i]==ncntr)
-						flag=1;
-				}
-			
-				if(flag==1)
-				{
-					if(dc==1 && pl==0)
-							m[ncntr]='1';
-							
-					else if(dc==2 && pl==1)
-							m[ncntr]='2';
-							
-					else if(dc==3 && pl==2)
-							m[ncntr]='3';
-							
-					else if(dc==4 && pl==3)
-							m[ncntr]='4';
-							
-					else if(dc==5 && pl==4)
-							m[ncntr]='5';
-							
-					else if(dc>5 && dc<tot)
-						m[ncntr]='F';
-						
-					else if(dc==tot)
-						m[ncntr]='G';
-						
-					
-					dc++;
-					flag=0;
-				}
-			
-			}
-		
-			++ncntr;
-			++px1;
-		}
 
-		
-		const char* ptr=m;
-		char* mp=map;
+	const char* px1=m;
+	int ncntr=0,flag=0,dc=1;
 	
-		//Convert the ASCII bytes into bit fields drawn from goldchase.h
-		while(*ptr!='\0')
+	//Random drop placement generator
+	while(*px1!='\0')
+	{
+		if(*px1==' ')
 		{
-			switch(*ptr)
+			for(int i=0;i<tot;i++)
 			{
-				case ' ':	*mp=0;
-							break;
-				case '*':	*mp=G_WALL;
-							break;
-				case '1':	*mp=G_PLR0;
-							break;
-				case '2':	*mp=G_PLR1;
-							break;
-				case '3':	*mp=G_PLR2;
-							break;
-				case '4':	*mp=G_PLR3;
-							break;
-				case '5':	*mp=G_PLR4;
-							break;
-				case 'G':	*mp=G_GOLD;
-							break;
-				case 'F':	*mp=G_FOOL;
-							break;
+				if(p_map[i]==ncntr)
+					flag=1;
 			}
 		
-			++ptr;
-			++mp;
+			if(flag==1)
+			{
+				if(dc==1 && pl==0)
+						m[ncntr]='1';
+						
+				else if(dc==2 && pl==1)
+						m[ncntr]='2';
+						
+				else if(dc==3 && pl==2)
+						m[ncntr]='3';
+						
+				else if(dc==4 && pl==3)
+						m[ncntr]='4';
+						
+				else if(dc==5 && pl==4)
+						m[ncntr]='5';
+						
+				else if(dc>5 && dc<tot)
+					m[ncntr]='F';
+					
+				else if(dc==tot)
+					m[ncntr]='G';
+					
+				
+				dc++;
+				flag=0;
+			}
+		
 		}
 	
+		++ncntr;
+		++px1;
+	}
+
 	
-	int a=0;
+	const char* ptr=m;
+	char* mp=map;
+
+	//Convert the ASCII bytes into bit fields drawn from goldchase.h
+	while(*ptr!='\0')
+	{
+		switch(*ptr)
+		{
+			case ' ':	*mp=0;
+						break;
+			case '*':	*mp=G_WALL;
+						break;
+			case '1':	*mp=G_PLR0;
+						break;
+			case '2':	*mp=G_PLR1;
+						break;
+			case '3':	*mp=G_PLR2;
+						break;
+			case '4':	*mp=G_PLR3;
+						break;
+			case '5':	*mp=G_PLR4;
+						break;
+			case 'G':	*mp=G_GOLD;
+						break;
+			case 'F':	*mp=G_FOOL;
+						break;
+		}
+	
+		++ptr;
+		++mp;
+	}
+	
+	
+	int a=0;	//input character
 	//Load map
 	Map goldMine(map,26,80);
 	//goldMine.postNotice("Game Start");
 	do
 	{
-		/*if(goldMine.getKey())
+		//if(goldMine.getKey())
 
-*/
 		a=goldMine.getKey();
 		
 		if(a=='h' && map[p_map[pl]-1]!=G_WALL)
@@ -469,4 +494,13 @@ void termHandler(int signum)
 	}
 
 	exit(signum);
+}
+
+
+void sync(int signum)
+{
+	if(signum==SIGUSR1)
+	{
+		
+	}
 }
