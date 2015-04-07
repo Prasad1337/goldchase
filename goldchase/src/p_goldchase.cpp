@@ -27,8 +27,8 @@ using namespace std;
 //Function Prototypes
 void termHandler(int);	//Signal Handler
 void syncUp(int);	//SIGUSR1 Handler [for map sync]
-void clearGold(int);
 void sync(int);
+void clearGold(int);
 void sigWinner(int);
 void postWinner(int);
 
@@ -591,13 +591,13 @@ void sigWinner(int signum)
 {
 	if(p_map[16]==p_map[11])
 		goldMine.postNotice("Player 1 has won!");
-	if(p_map[16]==p_map[12])
+	else if(p_map[16]==p_map[12])
 		goldMine.postNotice("Player 2 has won!");
-	if(p_map[16]==p_map[13])
+	else if(p_map[16]==p_map[13])
 		goldMine.postNotice("Player 3 has won!");
-	if(p_map[16]==p_map[14])
+	else if(p_map[16]==p_map[14])
 		goldMine.postNotice("Player 4 has won!");
-	if(p_map[16]==p_map[15])
+	else if(p_map[16]==p_map[15])
 		goldMine.postNotice("Player 5 has won!");
 }
 
