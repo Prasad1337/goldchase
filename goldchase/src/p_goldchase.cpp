@@ -27,20 +27,24 @@ using namespace std;
 //Function prototype
 void termHandler(int);	//Signal Handler
 void sync(int);	//SIGUSR1 Handler [for map sync]
+void clearGold(int);
 
 
 //Global Variables
 sem_t* p_sem;	//semaphore for player/process count
-int sem_val;
+int sem_val;	//store semaphore value
 int p_shm;	//shared memory
 int pl=0;	//Player number [Player #1 by default]
 char map[2080];	//map grid
 int mdump[11];	//local map placeholder
+int *p_map;	//towards mmap usage
 
 
 //Main
 int main(int argc, char** argv)
 {
+	//Initial definitions
+	pid_t plid;	//for process ID
 
 	//Signals
 	signal(SIGTERM,termHandler);
@@ -48,7 +52,7 @@ int main(int argc, char** argv)
 	signal(SIGHUP,termHandler);
 	signal(SIGTSTP,termHandler);
 
-	signal(SIGUSR1,sync);
+	signal(SIGUSR1,sync);	//signal to sync up
 
 	
 	//Semaphore
@@ -78,18 +82,13 @@ int main(int argc, char** argv)
 	//Initializing player number
 	if(argv[1])
 	{
-		int plnum=atoi(argv[1])-1;
-		if(plnum<=4)
+		if((pl=atoi(argv[1])-1)>=5)
 		{
-			pl=plnum;
-			pid_t plid=getpid();
-		}
-		else
-		{
-			cerr<<"Maximum Player #: 5"<<endl;
+			cerr<<"Maximum Player #: 5\nPlease try again!..."<<endl;
 			exit(1);
 		}
 	}
+
 	
 	//Reading map file
 	ifstream in("mymap.txt");
@@ -100,6 +99,7 @@ int main(int argc, char** argv)
     char fc=cont.c_str()[0];
     int gc=fc-'0';
     int tot=5+gc;
+    int maptot=tot+5;
     
     
     int c=0,sc=0,ccount=0;
@@ -127,7 +127,6 @@ int main(int argc, char** argv)
 	const char* px=m;
 
 	//Shared Memory
-	int* p_map;
 	int result;
 	p_shm=shm_open("/gc_shm", O_RDWR,S_IRUSR|S_IWUSR);
 	if(p_shm==-1)
@@ -140,7 +139,7 @@ int main(int argc, char** argv)
 		}
 		
 		//Initializing shared memory
-		result = lseek(p_shm, (tot*MAPSIZE)-1, SEEK_SET);
+		result = lseek(p_shm, (maptot*MAPSIZE)-1, SEEK_SET);
 		if (result == -1) {
 			close(p_shm);
 			cerr << "Critical fault!" << endl;
@@ -152,7 +151,7 @@ int main(int argc, char** argv)
 			cerr << "Critical fault!" << endl;
 			exit(1);
 		}
-		p_map = (int*)mmap(0,(tot*MAPSIZE),PROT_READ|PROT_WRITE,MAP_SHARED,p_shm,0);
+		p_map = (int*)mmap(0,(maptot*MAPSIZE),PROT_READ|PROT_WRITE,MAP_SHARED,p_shm,0);
 		if (p_map == MAP_FAILED) {
 			close(p_shm);
 			cerr << "Critical fault!" << endl;
@@ -184,48 +183,26 @@ int main(int argc, char** argv)
 				if(flag==1)
 				{
 					if(dc==1)
-					{
 						p_map[0]=ncntr;
-						mdump[0]=ncntr;
-					}
-						
+
 					else if(dc==2)
-					{
 						p_map[1]=ncntr;
-						mdump[1]=ncntr;
-					}
-						
+
 					else if(dc==3)
-					{
 						p_map[2]=ncntr;
-						mdump[2]=ncntr;
-					}
 						
 					else if(dc==4)
-					{
 						p_map[3]=ncntr;
-						mdump[3]=ncntr;
-					}
 						
 					else if(dc==5)
-					{
 						p_map[4]=ncntr;
-						mdump[4]=ncntr;
-					}
 						
 					else if(dc>5 && dc<tot)
-					{
 						p_map[dc-1]=ncntr;
-						mdump[dc-1]=ncntr;
-					}
 						
 					else if(dc==tot)
-					{
 						p_map[dc-1]=ncntr;
-						mdump[dc=1]=ncntr;
-					}
 						
-					
 					dc++;
 					flag=0;
 				}
@@ -236,12 +213,13 @@ int main(int argc, char** argv)
 			++ncntr;
 			++px;
 		}
+
 	}
 
 	else
 	{
 		p_shm=shm_open("/gc_shm",O_RDWR|O_CREAT,S_IRUSR|S_IWUSR);
-		p_map = (int*)mmap(0,(tot*MAPSIZE),PROT_READ|PROT_WRITE,MAP_SHARED,p_shm,0);
+		p_map = (int*)mmap(0,(maptot*MAPSIZE),PROT_READ|PROT_WRITE,MAP_SHARED,p_shm,0);
 		if (map == MAP_FAILED)
 		{
 			close(p_shm);
@@ -250,52 +228,52 @@ int main(int argc, char** argv)
 		}
 	}
 
+
+	//p_map to local cache
+	for(int i=0;i<tot;i++)
+	{
+		mdump[i]=p_map[i];
+	}
+
+
+	//Storing PID in SHM
+	p_map[11+pl]=(int)getpid();
+
+
 	const char* px1=m;
 	int ncntr=0,flag=0,dc=1;
 	
 	//Random drop placement generator
-	while(*px1!='\0')
+	for(int i=0;i<tot;i++)
 	{
-		if(*px1==' ')
+		if(i==0 && pl==0)
 		{
-			for(int i=0;i<tot;i++)
-			{
-				if(p_map[i]==ncntr)
-					flag=1;
-			}
-		
-			if(flag==1)
-			{
-				if(dc==1 && pl==0)
-						m[ncntr]='1';
-						
-				else if(dc==2 && pl==1)
-						m[ncntr]='2';
-						
-				else if(dc==3 && pl==2)
-						m[ncntr]='3';
-						
-				else if(dc==4 && pl==3)
-						m[ncntr]='4';
-						
-				else if(dc==5 && pl==4)
-						m[ncntr]='5';
-						
-				else if(dc>5 && dc<tot)
-					m[ncntr]='F';
-					
-				else if(dc==tot)
-					m[ncntr]='G';
-					
-				
-				dc++;
-				flag=0;
-			}
-		
+			m[p_map[i]]='1';
 		}
-	
-		++ncntr;
-		++px1;
+		else if(i==1 && pl==1)
+		{
+			m[p_map[i]]='2';
+		}
+		else if(i==2 && pl==2)
+		{
+			m[p_map[i]]='3';
+		}
+		else if(i==3 && pl==3)
+		{
+			m[p_map[i]]='4';
+		}
+		else if(i==4 && pl==4)
+		{
+			m[p_map[i]]='5';
+		}
+		else if(i>4 && i<(tot-1) && p_map[i]!=0)
+		{
+			m[p_map[i]]='F';
+		}
+		else if(i==(tot-1) && p_map[i]!=0)
+		{
+			m[p_map[i]]='G';
+		}
 	}
 
 	
@@ -338,8 +316,6 @@ int main(int argc, char** argv)
 	//goldMine.postNotice("Game Start");
 	do
 	{
-		//if(goldMine.getKey())
-
 		a=goldMine.getKey();
 		
 		if(a=='h' && map[p_map[pl]-1]!=G_WALL)
@@ -352,6 +328,7 @@ int main(int argc, char** argv)
 				continue;
 			
 			map[p_map[pl]]=0x00;
+			clearGold(p_map[pl]);
 			--p_map[pl];
 			
 			switch(pl)
@@ -379,6 +356,7 @@ int main(int argc, char** argv)
 				continue;
 			
 			map[p_map[pl]]=0x00;
+			clearGold(p_map[pl]);
 			p_map[pl]+=80;
 
 			switch(pl)
@@ -406,6 +384,7 @@ int main(int argc, char** argv)
 				continue;
 				
 			map[p_map[pl]]=0x00;
+			clearGold(p_map[pl]);
 			p_map[pl]-=80;
 
 			switch(pl)
@@ -433,6 +412,7 @@ int main(int argc, char** argv)
 				continue;
 		
 			map[p_map[pl]]=0x00;
+			clearGold(p_map[pl]);
 			++p_map[pl];
 
 			switch(pl)
@@ -493,14 +473,29 @@ void termHandler(int signum)
 		shm_unlink("/gc_shm");
 	}
 
-	exit(signum);
+	exit(0);
 }
 
 
+//Function to sync up
 void sync(int signum)
 {
 	if(signum==SIGUSR1)
 	{
 		
+	}
+}
+
+
+//Clear gold from SHM on pickup
+void clearGold(int loc)
+{
+	for(int i=5;i<=10;i++)
+	{
+		if(p_map[i]==loc)
+		{
+			p_map[i]=0;
+			break;
+		}
 	}
 }
