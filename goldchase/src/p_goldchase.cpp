@@ -26,8 +26,9 @@ using namespace std;
 
 //Function Prototypes
 void termHandler(int);	//Signal Handler
-void sync(int);	//SIGUSR1 Handler [for map sync]
+void syncUp(int);	//SIGUSR1 Handler [for map sync]
 void clearGold(int);
+void sync(int);
 
 
 //Global Variables
@@ -43,13 +44,15 @@ int *p_map;	//towards mmap usage
 //Main
 int main(int argc, char** argv)
 {
+	pid_t plid;
+
 	//Signals
 	signal(SIGTERM,termHandler);
 	signal(SIGINT,termHandler);
 	signal(SIGHUP,termHandler);
 	signal(SIGTSTP,termHandler);
 
-	signal(SIGUSR1,sync);	//signal to sync up
+	signal(SIGUSR1,syncUp);	//signal to sync up
 
 	
 	//Semaphore
@@ -214,6 +217,9 @@ int main(int argc, char** argv)
 		}
 	}
 
+	for(int i=11;i<=15;i++)
+		p_map[i]=0;
+
 
 	//p_map to local cache
 	for(int i=0;i<tot;i++)
@@ -242,7 +248,8 @@ int main(int argc, char** argv)
 
 	
 	//Storing PID in SHM
-	p_map[11+pl]=(int)getpid();
+	plid=(int)getpid();
+	p_map[11+pl]=plid;
 	
 
 	const char* px1=m;
@@ -314,13 +321,14 @@ int main(int argc, char** argv)
 		++mp;
 	}
 	
-	
+
 	int a=0;	//input character
 	//Load map
 	Map goldMine(map,26,80);
 	//goldMine.postNotice("Game Start");
 	do
 	{
+		sync(plid);
 		a=goldMine.getKey();
 		
 		if(a=='h' && map[p_map[pl]-1]!=G_WALL)
@@ -334,6 +342,7 @@ int main(int argc, char** argv)
 			
 			map[p_map[pl]]=0x00;
 			clearGold(p_map[pl]);
+			mdump[p_map[pl]]=0x00;
 			--p_map[pl];
 			
 			switch(pl)
@@ -362,6 +371,7 @@ int main(int argc, char** argv)
 			
 			map[p_map[pl]]=0x00;
 			clearGold(p_map[pl]);
+			mdump[p_map[pl]]=0x00;
 			p_map[pl]+=80;
 
 			switch(pl)
@@ -390,6 +400,7 @@ int main(int argc, char** argv)
 				
 			map[p_map[pl]]=0x00;
 			clearGold(p_map[pl]);
+			mdump[p_map[pl]]=0x00;
 			p_map[pl]-=80;
 
 			switch(pl)
@@ -418,6 +429,7 @@ int main(int argc, char** argv)
 		
 			map[p_map[pl]]=0x00;
 			clearGold(p_map[pl]);
+			mdump[p_map[pl]]=0x00;
 			++p_map[pl];
 
 			switch(pl)
@@ -436,10 +448,11 @@ int main(int argc, char** argv)
 		}
 
 		goldMine.drawMap();
-		
+
 	}while(a!='Q');
 	
 	
+	p_map[11+pl]=0;
 	sem_post(p_sem);
 	sem_getvalue(p_sem,&sem_val);
 	
@@ -463,6 +476,8 @@ void termHandler(int signum)
 {
 	endwin();	//Destroy the map
 
+	p_map[11+pl]=0;
+
 	sem_post(p_sem);
 	sem_getvalue(p_sem,&sem_val);
 
@@ -482,12 +497,44 @@ void termHandler(int signum)
 }
 
 
-//Function to sync up
+//Function to start sync
 void sync(int signum)
-{
-	if(signum==SIGUSR1)
+{	
+	signal(SIGUSR1,syncUp);	//signal to sync up
+
+	for(int i=11;i<=15;i++)
 	{
-		
+		if(p_map[i]!=signum && p_map[i]!=0)	//signal all except calling process
+			kill(SIGUSR1,p_map[i]);
+	}
+}
+
+
+//Sync signal handler
+void syncUp(int signum)
+{
+	for(int i=0;i<=10;i++)
+	{
+		if(p_map[i]!=mdump[i])
+		{
+			map[mdump[i]]=0x00;
+
+			
+			if(i==0 && p_map[11]>0)
+				map[p_map[i]]=='1';
+			else if(i==1 && p_map[12]>0)
+				map[p_map[i]]=='2';
+			else if(i==2 && p_map[13]>0)
+				map[p_map[i]]=='3';
+			else if(i==3 && p_map[14]>0)
+				map[p_map[i]]=='4';
+			else if(i==4 && p_map[15]>0)
+				map[p_map[i]]=='5';
+			else if(i>=5 && i<=9 && p_map[i]!=0)
+				map[p_map[i]]=='F';
+			else if(i==10 && p_map[i]!=0)
+				map[p_map[i]]=='G';
+		}
 	}
 }
 
