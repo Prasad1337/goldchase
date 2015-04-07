@@ -24,7 +24,7 @@
 using namespace std;
 
 
-//Function prototype
+//Function Prototypes
 void termHandler(int);	//Signal Handler
 void sync(int);	//SIGUSR1 Handler [for map sync]
 void clearGold(int);
@@ -43,9 +43,6 @@ int *p_map;	//towards mmap usage
 //Main
 int main(int argc, char** argv)
 {
-	//Initial definitions
-	pid_t plid;	//for process ID
-
 	//Signals
 	signal(SIGTERM,termHandler);
 	signal(SIGINT,termHandler);
@@ -225,20 +222,28 @@ int main(int argc, char** argv)
 	}
 
 
-	//Storing PID in SHM
-	p_map[11+pl]=(int)getpid();
-
-		
 	//Initializing player number
 	if(argv[1])
 	{
 		if((pl=atoi(argv[1])-1)>=5)
 		{
 			cerr<<"Maximum Player #: 5\nPlease try again!..."<<endl;
+			sem_post(p_sem);
 			exit(1);
 		}
 	}
 
+	if(p_map[11+pl]>0)
+	{
+		cerr<<"Player already exists!\nPlease try again!..."<<endl;
+		sem_post(p_sem);
+		exit(1);
+	}
+
+	
+	//Storing PID in SHM
+	p_map[11+pl]=(int)getpid();
+	
 
 	const char* px1=m;
 	int ncntr=0,flag=0,dc=1;
