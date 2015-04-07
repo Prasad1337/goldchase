@@ -78,18 +78,7 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 	
-		
-	//Initializing player number
-	if(argv[1])
-	{
-		if((pl=atoi(argv[1])-1)>=5)
-		{
-			cerr<<"Maximum Player #: 5\nPlease try again!..."<<endl;
-			exit(1);
-		}
-	}
 
-	
 	//Reading map file
 	ifstream in("mymap.txt");
 	string cont((istreambuf_iterator<char>(in)),istreambuf_iterator<char>());
@@ -238,6 +227,17 @@ int main(int argc, char** argv)
 
 	//Storing PID in SHM
 	p_map[11+pl]=(int)getpid();
+
+		
+	//Initializing player number
+	if(argv[1])
+	{
+		if((pl=atoi(argv[1])-1)>=5)
+		{
+			cerr<<"Maximum Player #: 5\nPlease try again!..."<<endl;
+			exit(1);
+		}
+	}
 
 
 	const char* px1=m;
