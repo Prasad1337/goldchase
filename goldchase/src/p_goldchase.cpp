@@ -29,6 +29,8 @@ void termHandler(int);	//Signal Handler
 void syncUp(int);	//SIGUSR1 Handler [for map sync]
 void clearGold(int);
 void sync(int);
+void sigWinner(int);
+void postWinner(int);
 
 
 //Global Variables
@@ -39,6 +41,8 @@ int pl=0;	//Player number [Player #1 by default]
 char map[2080];	//map grid
 int mdump[11];	//local map placeholder
 int *p_map;	//towards mmap usage
+char m[2080];
+Map goldMine(map,26,80);
 
 
 //Main
@@ -86,11 +90,10 @@ int main(int argc, char** argv)
     char fc=cont.c_str()[0];
     int gc=fc-'0';
     int tot=5+gc;
-    int maptot=tot+5;
+    int maptot=tot+6;
     
     
     int c=0,sc=0,ccount=0;
-    char m[strlen(cont.c_str())];
     
     const char* p=cont.c_str();
     
@@ -114,6 +117,15 @@ int main(int argc, char** argv)
 	const char* px=m;
 
 	//Shared Memory
+
+	/* p_map reference
+		0-4 players 1-5
+		5-9 fool's gold
+		10 real gold
+		11-15 process IDs
+		16 winner PID
+	*/
+
 	int result;
 	p_shm=shm_open("/gc_shm", O_RDWR,S_IRUSR|S_IWUSR);
 	if(p_shm==-1)
@@ -201,6 +213,11 @@ int main(int argc, char** argv)
 			++px;
 		}
 
+		for(int i=11;i<=15;i++)
+		{
+			p_map[i]=0;
+		}
+
 	}
 
 	else
@@ -215,21 +232,12 @@ int main(int argc, char** argv)
 		}
 	}
 
-	for(int i=11;i<=15;i++)
-		p_map[i]=0;
-
-
-	//p_map to local cache
-	for(int i=0;i<tot;i++)
-	{
-		mdump[i]=p_map[i];
-	}
-
-
 	//Initializing player number
 	if(argv[1])
 	{
-		if((pl=atoi(argv[1])-1)>=5)
+		pl=atoi(argv[1])-1;
+
+		if(pl>=5)
 		{
 			cerr<<"Maximum Player #: 5\nPlease try again!..."<<endl;
 			sem_post(p_sem);
@@ -320,9 +328,19 @@ int main(int argc, char** argv)
 	}
 	
 
+	//p_map to local cache
+	for(int i=0;i<=10;i++)
+	{
+		mdump[i]=p_map[i];
+	}
+
+
 	int a=0;	//input character
+	int win=0;
+
+	sync(plid);
 	//Load map
-	Map goldMine(map,26,80);
+	goldMine.drawMap();
 	//goldMine.postNotice("Game Start");
 	do
 	{
@@ -335,11 +353,15 @@ int main(int argc, char** argv)
 			if(map[p_map[pl]-1] & G_FOOL)
 				goldMine.postNotice("Fool's Gold Found!");
 			else if(map[p_map[pl]-1] & G_GOLD)
+			{
+				win=1;
 				goldMine.postNotice("You Won! Exit map to finish..");
+			}
 			else if(map[p_map[pl]-1] & G_ANYP)
 				continue;
 			
 			map[p_map[pl]]=0x00;
+			mdump[pl]=0x00;
 			clearGold(p_map[pl]);
 			--p_map[pl];
 			
@@ -363,11 +385,16 @@ int main(int argc, char** argv)
 			if(map[p_map[pl]+80] & G_FOOL)
 				goldMine.postNotice("Fool's Gold Found!");
 			else if(map[p_map[pl]+80] & G_GOLD)
+			{
+				win=1;
 				goldMine.postNotice("You Won! Exit map to finish..");
+
+			}
 			else if(map[p_map[pl]+80] & G_ANYP)
 				continue;
 			
 			map[p_map[pl]]=0x00;
+			mdump[pl]=0x00;
 			clearGold(p_map[pl]);
 			p_map[pl]+=80;
 
@@ -391,11 +418,15 @@ int main(int argc, char** argv)
 			if(map[p_map[pl]-80] & G_FOOL)
 				goldMine.postNotice("Fool's Gold Found!");
 			else if(map[p_map[pl]-80] & G_GOLD)
+			{
+				win=1;
 				goldMine.postNotice("You Won! Exit map to finish..");
+			}
 			else if(map[p_map[pl]-80] & G_ANYP)
 				continue;
 				
 			map[p_map[pl]]=0x00;
+			mdump[pl]=0x00;
 			clearGold(p_map[pl]);
 			p_map[pl]-=80;
 
@@ -419,11 +450,15 @@ int main(int argc, char** argv)
 			if(map[p_map[pl]+1] & G_FOOL)
 				goldMine.postNotice("Fool's Gold Found!");
 			else if(map[p_map[pl]+1] & G_GOLD)
+			{
+				win=1;
 				goldMine.postNotice("You Won! Exit map to finish..");
+			}
 			else if(map[p_map[pl]+1] & G_ANYP)
 				continue;
 		
 			map[p_map[pl]]=0x00;
+			mdump[pl]=0x00;
 			clearGold(p_map[pl]);
 			++p_map[pl];
 
@@ -442,6 +477,14 @@ int main(int argc, char** argv)
 			}
 		}
 
+		if(win==1)
+		{
+			p_map[16]=plid;
+			postWinner(plid);
+			win=0;
+		}
+
+		sync(plid);
 		goldMine.drawMap();
 
 	}while(a!='Q');
@@ -499,13 +542,13 @@ void sync(int signum)
 
 	for(int i=11;i<=15;i++)
 	{
-		if(p_map[i]!=signum && p_map[i]!=0)	//signal all except calling process
+		if(p_map[i]!=signum && p_map[i]>0)	//signal all except calling process
 			kill(p_map[i],SIGUSR1);
 	}
 }
 
 
-//Sync signal handler
+//Sync signal (SIGUSR1) handler
 void syncUp(int signum)
 {
 	for(int i=0;i<=10;i++)
@@ -513,20 +556,49 @@ void syncUp(int signum)
 		map[mdump[i]]=0x00;
 
 		if(i==0 && p_map[11]>0)
-			map[p_map[i]]='1';
+			map[p_map[i]]=G_PLR0;
 		else if(i==1 && p_map[12]>0)
-			map[p_map[i]]='2';
+			map[p_map[i]]=G_PLR1;
 		else if(i==2 && p_map[13]>0)
-			map[p_map[i]]='3';
+			map[p_map[i]]=G_PLR2;
 		else if(i==3 && p_map[14]>0)
-			map[p_map[i]]='4';
+			map[p_map[i]]=G_PLR3;
 		else if(i==4 && p_map[15]>0)
-			map[p_map[i]]='5';
+			map[p_map[i]]=G_PLR4;
 		else if(i>=5 && i<=9 && p_map[i]!=0x00)
-			map[p_map[i]]='F';
+			map[p_map[i]]=G_FOOL;
 		else if(i==10 && p_map[i]!=0x00)
-			map[p_map[i]]='G';
+			map[p_map[i]]=G_GOLD;
+
+		mdump[i]=p_map[i];
 	}
+}
+
+
+void postWinner(int signum)
+{
+	signal(SIGUSR1,sigWinner);
+
+	for(int i=11;i<=15;i++)
+	{
+		if(p_map[i]!=signum && p_map[i]>0)	//signal all except calling process
+			kill(p_map[i],SIGUSR1);
+	}
+}
+
+
+void sigWinner(int signum)
+{
+	if(p_map[16]==p_map[11])
+		goldMine.postNotice("Player 1 has won!");
+	if(p_map[16]==p_map[12])
+		goldMine.postNotice("Player 2 has won!");
+	if(p_map[16]==p_map[13])
+		goldMine.postNotice("Player 3 has won!");
+	if(p_map[16]==p_map[14])
+		goldMine.postNotice("Player 4 has won!");
+	if(p_map[16]==p_map[15])
+		goldMine.postNotice("Player 5 has won!");
 }
 
 
