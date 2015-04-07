@@ -338,9 +338,8 @@ int main(int argc, char** argv)
 	int a=0;	//input character
 	int win=0;
 
-	sync(plid);
 	//Load map
-	goldMine.drawMap();
+	sync(plid);
 	//goldMine.postNotice("Game Start");
 	do
 	{
@@ -485,7 +484,6 @@ int main(int argc, char** argv)
 		}
 
 		sync(plid);
-		goldMine.drawMap();
 
 	}while(a!='Q');
 	
@@ -542,7 +540,7 @@ void sync(int signum)
 
 	for(int i=11;i<=15;i++)
 	{
-		if(p_map[i]!=signum && p_map[i]>0)	//signal all except calling process
+		if(p_map[i]>0)	//signal all except calling process
 			kill(p_map[i],SIGUSR1);
 	}
 }
@@ -572,6 +570,8 @@ void syncUp(int signum)
 
 		mdump[i]=p_map[i];
 	}
+
+	goldMine.drawMap();
 }
 
 
