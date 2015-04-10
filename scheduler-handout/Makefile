@@ -2,8 +2,7 @@
 
 
 VERSION = 1
-sim = ./sim ./sim2
-#sim2 = ./sim2
+sim = ./sim
 #simec= ./simec
 CC = gcc
 CXX = g++
@@ -15,9 +14,6 @@ all: $(FILES)
 
 sim: sim.o schedule.o
 	$(CC) -o sim sim.o schedule.o
-
-sim2: sim2.o schedule.o
-	$(CC) -o sim2 sim2.o schedule.o
 
 #simec: simec.o schedule_ec.o
 #	$(CC) -o simec simec.o schedule_ec.o
