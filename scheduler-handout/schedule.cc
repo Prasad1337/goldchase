@@ -118,5 +118,8 @@ int nextProcess(int &time)
  */
 int hasProcess()
 {
-	
+	if(pcount>0)
+		return true;
+
+	return false;
 }
