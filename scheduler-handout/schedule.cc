@@ -59,25 +59,41 @@ int addProcess(int pid, int priority)
  */
 int removeProcess(int pid)
 {
+	int flag=0;
+
 	if(root->pid==pid)
 	{
-		temp=root->next;
+		if(root->next!=NULL)
+			temp=root->next;
+		else
+			temp=(struct node *)malloc(sizeof(struct node));
+
 		free(root);
 		root=temp;
 		--pcount;
+
 		return true;
 	}
 
 	temp=root;
+	struct node *temp1;
 
-	do
+	while(temp->next!=NULL)
 	{
-		if(temp->pid==pid)
+		if(temp->next->pid==pid)
 		{
-			
+			temp1=temp->next;
+			temp->next=temp1->next;
+			free(temp1);
+			--pcount;
+
+			return true;
 		}
+
 		temp=temp->next;
-	}while(temp->pid!=pid || temp->next!=NULL);
+	}
+
+	return false;
 }
 
 
