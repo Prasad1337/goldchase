@@ -44,10 +44,10 @@ int addProcess(int pid, int priority)
 		cur->next=NULL;
 	    ++pcount;
 
-	    return true;
+	    return 1;
 	}
 
-	return false;
+	return 0;
 }
 
 
@@ -72,7 +72,7 @@ int removeProcess(int pid)
 		root=temp;
 		--pcount;
 
-		return true;
+		return 1;
 	}
 
 	temp=root;
@@ -87,13 +87,13 @@ int removeProcess(int pid)
 			free(temp1);
 			--pcount;
 
-			return true;
+			return 1;
 		}
 
 		temp=temp->next;
 	}
 
-	return false;
+	return 0;
 }
 
 
@@ -119,7 +119,7 @@ int nextProcess(int &time)
 int hasProcess()
 {
 	if(pcount>0)
-		return true;
+		return 1;
 
-	return false;
+	return 0;
 }
