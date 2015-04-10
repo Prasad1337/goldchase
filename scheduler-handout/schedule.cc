@@ -106,7 +106,13 @@ int removeProcess(int pid)
  */
 int nextProcess(int &time)
 {
-	
+	if(pcount==0)
+		return -1;
+
+	else
+	{
+		
+	}
 }
 
 
