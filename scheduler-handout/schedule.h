@@ -18,7 +18,6 @@ struct node {
 
 struct node *root;
 struct node *cur;
-struct node *temp;
 
 int pcount;
 

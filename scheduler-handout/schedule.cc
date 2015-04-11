@@ -11,6 +11,7 @@
 
 #include "schedule.h"
 
+
 /**
  * Function to initialize any global variables for the scheduler. 
  */
@@ -59,7 +60,8 @@ int addProcess(int pid, int priority)
  */
 int removeProcess(int pid)
 {
-	int flag=0;
+	struct node *temp;
+	struct node *temp1;
 
 	if(root->pid==pid)
 	{
@@ -76,7 +78,6 @@ int removeProcess(int pid)
 	}
 
 	temp=root;
-	struct node *temp1;
 
 	while(temp->next!=NULL)
 	{
@@ -106,13 +107,26 @@ int removeProcess(int pid)
  */
 int nextProcess(int &time)
 {
-	if(pcount==0)
+	/*if(pcount==0)
 		return -1;
 
-	else
+	else if(pcount==1)
 	{
-		
+		time=root->priority;
+		return -1;
 	}
+
+	else
+	{*/
+		if(cur->next==NULL)
+			cur=root;
+
+		else
+			cur=cur->next;
+		
+		time=cur->priority;
+		return cur->pid;
+	//}
 }
 
 
