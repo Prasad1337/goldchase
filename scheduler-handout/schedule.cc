@@ -18,6 +18,7 @@
 void init()
 {
 	pcount=0;	//process count
+	q=1;	//quanta tracker [starts with 1]
 	root=(struct node *)malloc(sizeof(struct node));
 	cur=root;
 }
@@ -42,7 +43,7 @@ int addProcess(int pid, int priority)
 
 		cur->pid=pid;
 		cur->priority=priority;
-		cur->next=NULL;
+		cur->next=root;
 	    ++pcount;
 
 	    return 1;
@@ -65,7 +66,7 @@ int removeProcess(int pid)
 
 	if(root->pid==pid)
 	{
-		if(root->next!=NULL)
+		if(root->next!=root)
 			temp=root->next;
 		else
 			temp=(struct node *)malloc(sizeof(struct node));
@@ -79,7 +80,7 @@ int removeProcess(int pid)
 
 	temp=root;
 
-	while(temp->next!=NULL)
+	while(temp->next!=root)
 	{
 		if(temp->next->pid==pid)
 		{
@@ -118,7 +119,7 @@ int nextProcess(int &time)
 
 	else
 	{*/
-		if(cur->next==NULL)
+		if(cur->next==root)
 			cur=root;
 
 		else

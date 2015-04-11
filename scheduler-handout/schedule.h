@@ -20,5 +20,6 @@ struct node *root;
 struct node *cur;
 
 int pcount;
+int q;
 
 #endif
