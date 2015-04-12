@@ -1,8 +1,6 @@
 #ifndef _schedule_h_
 #define _schedule_h_
 
-#include <unistd.h>
-#include <sys/types.h>
 
 void init();
 int addProcess(int pid, int priority);
@@ -16,8 +14,8 @@ struct node {
     struct node *next;
 };
 
-struct node *root;
-struct node *cur;
+static struct node *root;
+static struct node *cur;
 
 static int pcount;
 
