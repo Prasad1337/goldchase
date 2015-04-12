@@ -19,8 +19,6 @@ struct node {
 struct node *root;
 struct node *cur;
 
-int pcount;
-int flag;
-static int q;
+static int pcount;
 
 #endif
