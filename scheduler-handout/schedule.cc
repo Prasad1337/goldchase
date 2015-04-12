@@ -19,6 +19,7 @@ void init()
 {
 	pcount=0;	//process count
 	q=1;	//quanta tracker [starts with 1]
+	flag=0;
 	root=(struct node *)malloc(sizeof(struct node));
 	cur=root;
 }
@@ -66,13 +67,17 @@ int removeProcess(int pid)
 
 	if(root->pid==pid)
 	{
-		if(root->next!=root)
-			temp=root->next;
-		else
-			temp=(struct node *)malloc(sizeof(struct node));
+		temp=root;
+		
+		while(temp->next!=root)
+		{
+			temp=temp->next;
+		}
 
-		free(root);
-		root=temp;
+		temp1=temp->next;
+		temp->next=temp1->next;
+		root=temp1->next;
+		free(temp1);
 		--pcount;
 
 		return 1;
@@ -108,28 +113,45 @@ int removeProcess(int pid)
  */
 int nextProcess(int &time)
 {
-	/*if(pcount==0)
-		return -1;
-
-	else if(pcount==1)
+	struct node* temp=cur;
+	
+	/*if(flag==0)
 	{
-		time=root->priority;
-		return -1;
+		flag=1;
+		time=cur->priority;
+		return cur->pid;
 	}
 
 	else
 	{*/
-		if(cur->next==root)
-			cur=root;
+	while(temp->next!=cur)
+	{
+		temp=temp->next;
 
-		else
-			cur=cur->next;
-		
-		time=cur->priority;
-		return cur->pid;
+		if(temp->priority==q)
+		{
+			cur=temp;
+			time=temp->priority;
+			return temp->pid;
+		}
+	}
+
+	++q;
+	temp=temp->next;
+
+	while(temp->next!=cur)
+	{
+		temp=temp->next;
+
+		if(temp->priority==q)
+		{
+			cur=temp;
+			time=temp->priority;
+			return temp->pid;
+		}
+	}	
 	//}
 }
-
 
 /**
  * Function that returns a boolean 1 True/0 False based on if there are any 
