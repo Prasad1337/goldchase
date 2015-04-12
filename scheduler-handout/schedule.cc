@@ -41,8 +41,7 @@ int addProcess(int pid, int priority)
 		}
 
 		cur->pid=pid;
-		priority=5-priority;
-		cur->priority=priority;
+		cur->priority=5-priority;
 		cur->next=root;
 	    ++pcount;
 
@@ -70,6 +69,10 @@ int removeProcess(int pid)
 		{
 			temp1=temp->next;
 			temp->next=temp1->next;
+
+			if(cur==temp1)
+				cur=cur->next;
+
 			free(temp1);
 			--pcount;
 
@@ -84,6 +87,10 @@ int removeProcess(int pid)
 		temp1=temp->next;
 		temp->next=temp1->next;
 		root=temp->next;
+
+		if(cur==temp1)
+			cur=cur->next;
+
 		free(temp1);
 		--pcount;
 
