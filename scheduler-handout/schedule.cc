@@ -43,6 +43,7 @@ int addProcess(int pid, int priority)
 		}
 
 		cur->pid=pid;
+		priority=5-priority;
 		cur->priority=priority;
 		cur->next=root;
 	    ++pcount;
@@ -76,7 +77,7 @@ int removeProcess(int pid)
 
 		temp1=temp->next;
 		temp->next=temp1->next;
-		root=temp1->next;
+		root=temp->next;
 		free(temp1);
 		--pcount;
 
@@ -113,44 +114,10 @@ int removeProcess(int pid)
  */
 int nextProcess(int &time)
 {
-	struct node* temp=cur;
-	
-	/*if(flag==0)
-	{
-		flag=1;
-		time=cur->priority;
-		return cur->pid;
-	}
+	cur=cur->next;
 
-	else
-	{*/
-	while(temp->next!=cur)
-	{
-		temp=temp->next;
-
-		if(temp->priority==q)
-		{
-			cur=temp;
-			time=temp->priority;
-			return temp->pid;
-		}
-	}
-
-	++q;
-	temp=temp->next;
-
-	while(temp->next!=cur)
-	{
-		temp=temp->next;
-
-		if(temp->priority==q)
-		{
-			cur=temp;
-			time=temp->priority;
-			return temp->pid;
-		}
-	}	
-	//}
+	time=cur->priority;
+	return cur->pid;
 }
 
 /**
