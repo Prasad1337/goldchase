@@ -18,7 +18,6 @@ int removeItem(int,Queue *);
 Node* findItem(int,Queue *);
 
 
-
 /**
  * Function to initialize any global variables for the scheduler. 
  */
