@@ -27,10 +27,13 @@ using namespace std;
 //Function Prototypes
 void termHandler(int);	//Signal Handler
 void syncUp(int);	//SIGUSR1 Handler [for map sync]
-void sync(int);
+void sigWinner(int);	//Signal
+void bcastHandler(int);
+
+void sync();
 void clearGold(int);
-void sigWinner(int);
 void postWinner(int);
+void broadcastMsg(int);
 
 
 //Global Variables
@@ -339,11 +342,11 @@ int main(int argc, char** argv)
 	int win=0;
 
 	//Load map
-	sync(plid);
+	sync();
 	//goldMine.postNotice("Game Start");
 	do
 	{
-		sync(plid);
+		sync();
 
 		a=goldMine.getKey();
 		
@@ -476,6 +479,11 @@ int main(int argc, char** argv)
 			}
 		}
 
+		else if(a=='h')
+		{
+			broadcastMsg(plid);
+		}
+
 		if(win==1)
 		{
 			p_map[16]=plid;
@@ -483,7 +491,7 @@ int main(int argc, char** argv)
 			win=0;
 		}
 
-		sync(plid);
+		sync();
 
 	}while(a!='Q');
 	
@@ -534,7 +542,7 @@ void termHandler(int signum)
 
 
 //Function to start sync
-void sync(int signum)
+void sync()
 {	
 	signal(SIGUSR1,syncUp);	//signal to sync up
 
@@ -599,6 +607,25 @@ void sigWinner(int signum)
 		goldMine.postNotice("Player 4 has won!");
 	else if(p_map[16]==p_map[15])
 		goldMine.postNotice("Player 5 has won!");
+}
+
+
+void broadcastMsg(int signum)
+{
+	signal(SIGUSR1,bcastHandler);
+
+	for(int i=11;i<=15;i++)
+	{
+		if(p_map[i]!=signum && p_map[i]>0)	//signal all except calling process
+			kill(p_map[i],SIGUSR1);
+	}
+}
+
+
+void bcastHandler(int signum)
+{
+	goldMine.postNotice("test");
+	sync();
 }
 
 
