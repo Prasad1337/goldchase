@@ -479,7 +479,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-		else if(a=='h')
+		else if(a=='b')
 		{
 			broadcastMsg(plid);
 		}
@@ -624,8 +624,7 @@ void broadcastMsg(int signum)
 
 void bcastHandler(int signum)
 {
-	goldMine.postNotice("test");
-	sync();
+	goldMine.postNotice("test message");
 }
 
 
