@@ -4,31 +4,31 @@
 
 typedef struct node
 {
-	struct node *prev;
 	struct node *next;
-	int data;
+	struct node *prev;
+	int val;
 }Node;
 
 
 typedef struct queue
 {
-	node *first;
-	node *last;
+	node *beg;
+	node *end;
 }Queue;
 
 
-static int currentQue;
-static Queue processQue[4];
+static int cQ;
+static Queue Q[4];
 
-
-void addQueue(Queue *q,int value);
-void initQueue(Queue *q);
-int popQueue(Queue *q);
 
 void init();
 int addProcess(int pid, int priority);
 int removeProcess(int pid);
 int nextProcess(int &time);
 int hasProcess();
+
+void addQ(int,Queue *);
+void initQ(Queue *);
+int popQ(Queue *);
 
 #endif

@@ -5,30 +5,31 @@
 //
 
 
+//Header file includes
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "schedule.h"
 
 
+//Function prototypes
 int isEmpty(Queue *);
-int removeElement(Queue *,int);
+int removeItem(int,Queue *);
+Node* findItem(int,Queue *);
+
+
 
 /**
  * Function to initialize any global variables for the scheduler. 
  */
-void init(){
-	
-	int i;
-	
-	currentQue =0;
-	for(i=0;i<4;i++)
-	{
-		initQueue(processQue+i);
-	}
-	
-	
+void init()
+{
+	cQ=0;
+
+	for(int i=0;i<4;i++)
+		initQ(Q+i);
 }
+
 
 /**
  * Function to add a process to the scheduler
@@ -37,11 +38,11 @@ void init(){
  * @Param priority - priority of the process being added
  * @return true/false response for if the addition was successful
  */
-int addProcess(int pid, int priority){
-	
-	addQueue((processQue+(priority-1)),pid);
-	
+int addProcess(int pid, int priority)
+{
+	addQ(pid,(Q+(priority-1)));
 }
+
 
 /**
  * Function to remove a process from the scheduler queue
@@ -49,23 +50,18 @@ int addProcess(int pid, int priority){
  *      scheduler queue
  * @Return true/false response for if the removal was successful
  */
-int removeProcess(int pid){
-	
-	int i,j;
-	
-	for(i=0;i<4;i++)
+int removeProcess(int pid)
+{
+	for(int i=0;i<4;i++)
 	{
-			
-			 if((removeElement((processQue+i),pid)))
-			 {
-				 return 1;
-			}
+		if(removeItem(pid,(Q+i)))
+			return 1;
 	}
+
 	return 0;
-		
-	
-	
 }
+
+
 /**
  * Function to get the next process from the scheduler
  * @Param time - pass by reference variable to store the quanta of time
@@ -73,49 +69,53 @@ int removeProcess(int pid){
  * @Return returns the thread id of the next process that should be 
  *      executed, returns -1 if there are no processes
  */
-int nextProcess(int &time){
-	int data,i;
-	
-	
-	
-		
-	   if(!isEmpty(processQue+currentQue))
+int nextProcess(int &time)
+{
+	int val;
+
+	   if(!isEmpty(Q+cQ))
 		{
-			data = popQueue(processQue+currentQue);
-			time = 4 - currentQue;
-			addQueue(processQue+currentQue,data);
-			currentQue = (currentQue+1)%4;
-			return data;
+			val=popQ(Q+cQ);
+			time=4-cQ;
+			addQ(val,Q+cQ);
+			cQ=(cQ+1)%4;
+			return val;
 			
 		}
-		currentQue = (currentQue+1)%4;
-		if(!isEmpty(processQue+currentQue))
+
+		cQ=(cQ+1)%4;
+
+		if(!isEmpty(Q+cQ))
 		{
-			data = popQueue(processQue+currentQue);
-			time = 4 - currentQue;
-			addQueue(processQue+currentQue,data);
-			currentQue = (currentQue+1)%4;
-			return data;
+			val=popQ(Q+cQ);
+			time=4-cQ;
+			addQ(val,Q+cQ);
+			cQ=(cQ+1)%4;
+			return val;
 			
 		}
-		currentQue = (currentQue+1)%4;
-		if(!isEmpty(processQue+currentQue))
+
+		cQ=(cQ+1)%4;
+
+		if(!isEmpty(Q+cQ))
 		{
-			data = popQueue(processQue+currentQue);
-			time = 4 - currentQue;
-			addQueue(processQue+currentQue,data);
-			currentQue = (currentQue+1)%4;
-			return data;
+			val=popQ(Q+cQ);
+			time=4-cQ;
+			addQ(val,Q+cQ);
+			cQ=(cQ+1)%4;
+			return val;
 			
 		}
-		currentQue = (currentQue+1)%4;
-		if(!isEmpty(processQue+currentQue))
+
+		cQ=(cQ+1)%4;
+
+		if(!isEmpty(Q+cQ))
 		{
-			data = popQueue(processQue+currentQue);
-			time = 4 - currentQue;
-			addQueue(processQue+currentQue,data);
-			currentQue = (currentQue+1)%4;
-			return data;
+			val=popQ(Q+cQ);
+			time=4-cQ;
+			addQ(val,Q+cQ);
+			cQ=(cQ+1)%4;
+			return val;
 			
 		}
 }
@@ -126,148 +126,132 @@ int nextProcess(int &time){
  * @Return 1 if there are processes still scheduled 0 if there are no more 
  *		scheduled processes
  */
-int hasProcess(){
-	
-	int i;
-	for(i=0;i<4;i++)
+int hasProcess()
+{
+	for(int i=0;i<4;i++)
 	{
-			if(!isEmpty(processQue+i))
-			{
-				//printf("Queue not empty \n");
-				return 1;
-			}
+		if(!isEmpty(Q+i))
+			return 1;
 	}
 
 	return 0;
-	
 }
 
 
-void initQueue(Queue *q)
+
+void initQ(Queue *q)
 {
-	q->first=NULL;
-	q->last=NULL;
+	q->beg=NULL;
+	q->end=NULL;
 }
 
-void addQueue(Queue *q,int value)
+
+void addQ(int pid,Queue *q)
 {
-	Node *temp = (Node *)malloc(sizeof(Node));
-	temp->data = value;
+	Node *temp=(Node *)malloc(sizeof(Node));
+	temp->val=pid;
 	temp->prev=NULL;
 	temp->next=NULL;
 	
-	//if the queue is empty
-	if(q->first == NULL && q->last==NULL)
+	if(q->beg==NULL && q->end==NULL)
 	{
-		q->first = temp;
-		q->last = temp;
-		
-	}// if it has 1 node 
-	else if( q-> first == q->last)
-	{
-		temp->prev=q->first;		
-		q->last=temp;
-		q->first->next=q->last;
-	}//more than 2
-	else 
-	{
-		temp->prev=q->last;
-		q->last->next=temp;
-		q->last=temp;	
-		
+		q->beg=temp;
+		q->end=temp;
 	}
-	
+
+	else if(q->beg==q->end)
+	{
+		temp->prev=q->beg;
+		q->end=temp;
+		q->beg->next=q->end;
+	}
+
+	else
+	{
+		temp->prev=q->end;
+		q->end->next=temp;
+		q->end=temp;
+	}
 }
 
-int popQueue(Queue *q)
+
+int popQ(Queue *q)
 {	
-	Node *temp ;
-	int data;
-	//if the queue is empty
-	if(q->first == NULL && q->last==NULL)
+	Node *temp;
+	int val;
+	
+	if(q->beg==NULL && q->end==NULL)
+		return -1;
+
+	else if(q->beg==q->end)
 	{
-		//printf("Popping from Queue of size 0..\n");
-		
-		return -1;	
-	}// if it has 1 node 
-	else if( q-> first == q->last)
-	{
-		//printf("Popping from Queue of size 1...\n");
-		data=q->first->data;
-		free(q->first);
-		q->first=NULL;
-		q->last=NULL;
+		val=q->beg->val;
+		free(q->beg);
+		q->beg=NULL;
+		q->end=NULL;
 			
-		return data;	
-	}//more than 2
+		return val;
+	}
+
 	else 
 	{
-		//printf("Popping from Queue of size 2 or greater\n");
-		data=q->first->data;
-		q->first=q->first->next;
-		free(q->first->prev);
-		q->first->prev=NULL;
-		return data;		
+		val=q->beg->val;
+		q->beg=q->beg->next;
+		free(q->beg->prev);
+		q->beg->prev=NULL;
+
+		return val;		
 	}
 	
 }
 
-Node* findElement(Queue *q,int data)
+
+
+int removeItem(int pid,Queue *q)
+{
+	Node *temp=findItem(pid,q);	
+	
+	if(temp !=NULL)
+	{
+		if(temp->val==pid)
+		{
+			if(temp==q->beg)
+				q->beg=q->beg->next;
+
+			if(temp==q->end)
+				q->end=q->end->prev;
+
+			if(temp->prev!=NULL)
+				temp->prev->next=temp->next;
+
+			if(temp->next!=NULL)
+				temp->next->prev=temp->prev;
+		}
+
+		return 1;
+	}
+
+	else
+		return 0;
+}
+
+
+Node* findItem(int pid,Queue *q)
 {
 	Node *temp;
-	for(temp=q->first;temp!=NULL;temp=temp->next)
+	for(temp=q->beg;temp!=NULL;temp=temp->next)
 	{
-		if(temp->data == data)
-		{
+		if(temp->val==pid)
 			return temp; 
-				
-		}
 	}
+
 	return NULL;
 }
 
 
-int removeElement(Queue *q,int data)
-{
-	Node *temp = findElement(q,data);	
-	
-	if(temp !=NULL)
-	{
-		if(temp->data == data)
-		{
-			if(temp==q->first)
-			{
-				q->first=q->first->next;
-			}
-			if(temp==q->last)
-			{
-				q->last=q->last->prev;
-			}
-			if(temp->prev !=NULL )
-			{
-				temp->prev->next=temp->next;
-				
-			}
-			if(temp->next !=NULL )
-			{
-				temp->next->prev=temp->prev;
-			}
-				
-		}
-		return 1;
-	}
-	else
-	{
-		//printf("no such process...in remove processes function \n ");
-		return 0;
-	}
-	
-	
-}
-
 int isEmpty(Queue *q)
 {
-	if(q->first == NULL && q->last==NULL)
+	if(q->beg==NULL && q->end==NULL)
 		return 1;	
 	else
 		return 0;
