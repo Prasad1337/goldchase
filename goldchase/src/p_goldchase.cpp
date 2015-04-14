@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <string.h>
 #include <csignal>
+#include <mqueue.h>
 
 #include "goldchase.h"
 #include "Map.h"
