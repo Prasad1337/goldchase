@@ -613,12 +613,12 @@ void sigWinner(int signum)
 
 void broadcastMsg(int signum)
 {
-	signal(SIGUSR1,bcastHandler);
+	signal(SIGUSR2,bcastHandler);
 
 	for(int i=11;i<=15;i++)
 	{
 		if(p_map[i]!=signum && p_map[i]>0)	//signal all except calling process
-			kill(p_map[i],SIGUSR1);
+			kill(p_map[i],SIGUSR2);
 	}
 }
 

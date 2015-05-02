@@ -78,8 +78,8 @@ int nextProcess(int &time)
 			time=4-cQ;
 			addQ(val,Q+cQ);
 			cQ=(cQ+1)%4;
-			return val;
 			
+			return val;
 		}
 
 		cQ=(cQ+1)%4;
@@ -241,7 +241,7 @@ Node* findItem(int pid,Queue *q)
 	for(temp=q->beg;temp!=NULL;temp=temp->next)
 	{
 		if(temp->val==pid)
-			return temp; 
+			return temp;
 	}
 
 	return NULL;
