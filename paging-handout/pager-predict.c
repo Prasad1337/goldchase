@@ -1,18 +1,3 @@
-/*
- * File: pager-predict.c
- * Author:       Andy Sayler
- *               http://www.andysayler.com
- * Adopted From: Dr. Alva Couch
- *               http://www.cs.tufts.edu/~couch/
- *
- * Project: CSCI 3753 Programming Assignment 4
- * Create Date: Unknown
- * Modify Date: 2012/04/03
- * Description:
- *  This file contains a predictive pageit
- *      implmentation.
- */
-
 #include <stdlib.h>
 #include <stdio.h> 
 #include <stdlib.h>
@@ -27,6 +12,9 @@
 #define REALLOC_INTERVAL (REALLOC_BASE*100) /* ticks */
 #define HPLUS_ONE(_element) ( (_element < (HSIZE-1) )? (_element+1) : 0)
 #define HMINUS_ONE(_element) ( (_element == 0 )? (HSIZE-1) : (_element-1) )
+
+
+static int tick = 0; // artificial time
 
 
 struct phist_record {
@@ -46,13 +34,13 @@ struct phist {
 static struct phist phist_arr[MAXPROCESSES];
 static int pg_alloc[MAXPROCESSES];
 static int proc_faults[MAXPROCESSES];
-static uint32_t proc_susp[MAXPROCESSES];
+static int proc_susp[MAXPROCESSES];
 static int proc_pset[MAXPROCESSES][MAXPROCPAGES];
 static int proc_last_evict[MAXPROCESSES];
 static int proc_last_unsat[MAXPROCESSES];
 static int proc_last_pagein[MAXPROCESSES];
 
-static uint32_t timestamps[MAXPROCESSES][MAXPROCPAGES];
+static int timestamps[MAXPROCESSES][MAXPROCPAGES];
 
 
 static void inc_head(struct phist *ph) {
@@ -167,9 +155,9 @@ static void timestamps_init() {
 
 }
 
-static void lru_page(Pentry q[MAXPROCESSES], int proc, uint32_t tick, int *evictee) {
+static void lru_page(Pentry q[MAXPROCESSES], int proc, int tick, int *evictee) {
     int page;
-    uint32_t t;
+    int t;
 
     *evictee = -1;
     /* want to do better than or equal to
@@ -432,8 +420,7 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
     
 }
 
-void pageit(Pentry q[MAXPROCESSES]) { 
-    static uint32_t tick = 0; // artificial time
+void pageit(Pentry q[MAXPROCESSES]) {
     
     /* tick starts at 1, so 0 means this is the first run
      * or an overflow. either way, reset timestamps.

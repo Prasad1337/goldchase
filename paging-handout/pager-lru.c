@@ -1,17 +1,3 @@
-/*
- * File: pager-lru.c
- * Author:       Andy Sayler
- *               http://www.andysayler.com
- * Adopted From: Dr. Alva Couch
- *               http://www.cs.tufts.edu/~couch/
- *
- * Project: CSCI 3753 Programming Assignment 4
- * Create Date: Unknown
- * Modify Date: 2012/04/03
- * Description:
- *  This file contains an lru pageit
- *      implmentation.
- */
 #include <errno.h>
 #include <stdio.h> 
 #include <stdlib.h>
@@ -20,55 +6,40 @@
 
 #include "simulator.h"
 
-enum swapin_state {
-    SWAPOUT = 1,
-    SWAPIN,
-    SWAPFAIL
-};
 
-static size_t pages_alloc(Pentry q[MAXPROCESSES], int proc) {
-    int page;
-    size_t amt = 0;
+static int tick=0;    //artificial time
+static int timestamps[MAXPROCESSES][MAXPROCPAGES];
 
-    for(page = 0; page < MAXPROCPAGES; page++) {
-        if(q[proc].pages[page])
-            amt++;
+
+static int pages_alloc(Pentry q[MAXPROCESSES],int proc)
+{
+    int pg,c=0;
+
+    for(pg=0;pg<MAXPROCPAGES;pg++)
+    {
+        if(q[proc].pages[pg])
+            c++;
     }
 
-    return amt;
+    return c;
 }
 
-static uint32_t timestamps[MAXPROCESSES][MAXPROCPAGES];
 
-static void timestamps_init() {
-    int proc, page;
-
-    for(proc = 0; proc < MAXPROCESSES; proc++)
-        for(page = 0; page < MAXPROCPAGES; page++)
-            timestamps[proc][page] = 0; 
-
-}
-
-static void lru_page(Pentry q[MAXPROCESSES], int proc, uint32_t tick, int *evictee) {
-    int page;
-    uint32_t t;
+static void lru_page(Pentry q[MAXPROCESSES],int proc,int tick,int *evictee)
+{
+    int pg;
+    int t;
 
     *evictee = -1;
-    /* want to do better than or equal to
-     * a page that was referenced just 
-     * now. adding 1 to tick should
-     * ensure this function always
-     * returns a page
-     */
     t = tick+1;  
 
-    for(page = 0; page < MAXPROCPAGES; page++) {
-        if(!q[proc].pages[page]) /* cant evict this */
+    for(pg = 0; pg < MAXPROCPAGES; pg++) {
+        if(!q[proc].pages[pg]) /* cant evict this */
             continue;
 
-        if(timestamps[proc][page] < t) {
-            t = timestamps[proc][page];
-            *evictee = page;
+        if(timestamps[proc][pg] < t) {
+            t = timestamps[proc][pg];
+            *evictee = pg;
 
             if(t <= 1) /* cant do any better than that! */
                 break;
@@ -81,23 +52,21 @@ static void lru_page(Pentry q[MAXPROCESSES], int proc, uint32_t tick, int *evict
         //endit();
     }
 }
-
-
-static uint32_t tick = 0; // artificial time
     
-static void lru_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
-    int proc, page, evicted;
+static void lru_pageit(Pentry q[MAXPROCESSES], int tick)
+{
+    int proc, pg, evicted;
     
     for(proc = 0; proc < MAXPROCESSES; proc++) {
         if(!q[proc].active) /* done if its not active */
             continue;
 
-        page = q[proc].pc/PAGESIZE;
+        pg = q[proc].pc/PAGESIZE;
         /* note this time for future eviction decisions */
-        timestamps[proc][page] = tick; 
+        timestamps[proc][pg] = tick; 
         
         /* done if the page is already in memory */
-        if(q[proc].pages[page]) 
+        if(q[proc].pages[pg]) 
             continue;
 
         /* the page is not in memory.
@@ -105,7 +74,7 @@ static void lru_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
          * on its way already or we just got it
          * started, so we are done with this process
          */
-        if(pagein(proc, page) )
+        if(pagein(proc, pg) )
             continue;
 
         /* there are no free physical pages */
@@ -113,33 +82,37 @@ static void lru_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
             continue; /* must have at least one page to evict */
 
         lru_page(q, proc, tick, &evicted);
-
-        if(!pageout(proc, evicted) ) {
-            //endit();
-        }
+        pageout(proc, evicted);
     }
 }
 
-void exit_fn() {
+void exit_fn()
+{
     printf("final tick value was %d\n", tick);  
 }
 
-void pageit(Pentry q[MAXPROCESSES]) { 
-    /* tick starts at 1, so 0 means this is the first run
-     * or an overflow. either way, reset timestamps.
-     */ 
-    if(tick < 1) {
-        timestamps_init();      
+void pageit(Pentry q[MAXPROCESSES])
+{
+    if(tick < 1)
+    {
+        int proc,pg;
+
+        for(proc=0;proc<MAXPROCESSES;proc++)
+        {
+            for(pg=0;pg<MAXPROCPAGES;pg++)
+                timestamps[proc][pg]=0; 
+        }
+
         tick = 1;
-        if(atexit(exit_fn) != 0) {
+
+        if(atexit(exit_fn) != 0)
+        {
             perror(NULL);
             exit(1);
         }
     }   
     
-    lru_pageit(q, tick);
-    
-    /* advance time for next pageit iteration */
+    lru_pageit(q,tick);
     tick++;
 } 
 
