@@ -13,12 +13,80 @@
  *      implmentation.
  */
 #include <errno.h>
-#include "lru.h"
+#include <stdio.h> 
+#include <stdlib.h>
+#include <stdint.h>
+#include <assert.h>
+
+#include "simulator.h"
+
+enum swapin_state {
+    SWAPOUT = 1,
+    SWAPIN,
+    SWAPFAIL
+};
+
+static size_t pages_alloc(Pentry q[MAXPROCESSES], int proc) {
+    int page;
+    size_t amt = 0;
+
+    for(page = 0; page < MAXPROCPAGES; page++) {
+        if(q[proc].pages[page])
+            amt++;
+    }
+
+    return amt;
+}
+
+static uint32_t timestamps[MAXPROCESSES][MAXPROCPAGES];
+
+static void timestamps_init() {
+    int proc, page;
+
+    for(proc = 0; proc < MAXPROCESSES; proc++)
+        for(page = 0; page < MAXPROCPAGES; page++)
+            timestamps[proc][page] = 0; 
+
+}
+
+static void lru_page(Pentry q[MAXPROCESSES], int proc, uint32_t tick, int *evictee) {
+    int page;
+    uint32_t t;
+
+    *evictee = -1;
+    /* want to do better than or equal to
+     * a page that was referenced just 
+     * now. adding 1 to tick should
+     * ensure this function always
+     * returns a page
+     */
+    t = tick+1;  
+
+    for(page = 0; page < MAXPROCPAGES; page++) {
+        if(!q[proc].pages[page]) /* cant evict this */
+            continue;
+
+        if(timestamps[proc][page] < t) {
+            t = timestamps[proc][page];
+            *evictee = page;
+
+            if(t <= 1) /* cant do any better than that! */
+                break;
+        }
+    }           
+
+    if(*evictee < 0) {
+        printf("page for process %d w/ %u active pages not found with age < %u\n", proc, (unsigned int) pages_alloc(q, proc), tick);
+        fflush(stdout);
+        //endit();
+    }
+}
+
 
 static uint32_t tick = 0; // artificial time
     
 static void lru_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
-    int proc, page, state, evicted;
+    int proc, page, evicted;
     
     for(proc = 0; proc < MAXPROCESSES; proc++) {
         if(!q[proc].active) /* done if its not active */
@@ -37,14 +105,8 @@ static void lru_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
          * on its way already or we just got it
          * started, so we are done with this process
          */
-        if(pagein(proc, page, &state) )
+        if(pagein(proc, page) )
             continue;
-
-        /* either the page is swapping out or 
-         * there are no free physical pages
-         */
-        if(state == SWAPOUT) 
-            continue; /* just have to wait... */
 
         /* there are no free physical pages */
         if(pages_alloc(q, proc) < 1) 
@@ -53,7 +115,7 @@ static void lru_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
         lru_page(q, proc, tick, &evicted);
 
         if(!pageout(proc, evicted) ) {
-            endit();
+            //endit();
         }
     }
 }

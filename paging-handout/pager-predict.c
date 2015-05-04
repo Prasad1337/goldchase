@@ -13,14 +13,194 @@
  *      implmentation.
  */
 
-#include "lru.h"
-#include "predict.h"
 #include <stdlib.h>
+#include <stdio.h> 
+#include <stdlib.h>
+#include <stdint.h>
+#include <assert.h>
 
-/* ideas:
- *  -window
- *  -window w/ proactive eviction
- */
+#include "simulator.h"
+
+
+#define MAX_PAGE_ALLOC 40
+#define REALLOC_BASE 50
+#define REALLOC_INTERVAL (REALLOC_BASE*100) /* ticks */
+#define HPLUS_ONE(_element) ( (_element < (HSIZE-1) )? (_element+1) : 0)
+#define HMINUS_ONE(_element) ( (_element == 0 )? (HSIZE-1) : (_element-1) )
+
+
+struct phist_record {
+    int page;
+    int fault;
+};
+
+#define HSIZE (1 << 11)
+
+struct phist {
+    struct phist_record records[HSIZE];
+    int head;
+    int tail;
+};
+
+
+static struct phist phist_arr[MAXPROCESSES];
+static int pg_alloc[MAXPROCESSES];
+static int proc_faults[MAXPROCESSES];
+static uint32_t proc_susp[MAXPROCESSES];
+static int proc_pset[MAXPROCESSES][MAXPROCPAGES];
+static int proc_last_evict[MAXPROCESSES];
+static int proc_last_unsat[MAXPROCESSES];
+static int proc_last_pagein[MAXPROCESSES];
+
+static uint32_t timestamps[MAXPROCESSES][MAXPROCPAGES];
+
+
+static void inc_head(struct phist *ph) {
+    int tmp;
+
+    tmp = HPLUS_ONE(ph->head);
+    if(tmp == ph->tail)
+        ph->tail = HPLUS_ONE(ph->tail);
+
+    ph->head = tmp;
+}
+
+void phist_init(struct phist *ph) {
+    ph->head = 0;
+    ph->tail = 0;
+}
+
+void phist_push(struct phist *ph, const struct phist_record *ph_r) {
+    ph->records[ph->head] = *ph_r;
+    inc_head(ph);
+}
+
+void phist_len(const struct phist *ph, int *len) {
+    int tmp;
+
+    tmp = HPLUS_ONE(ph->head);
+    if(tmp == ph->tail)
+        *len = HSIZE;
+    else
+        *len = (ph->head - ph->tail) + 1;
+}
+
+void phist_at(const struct phist *ph, int t, struct phist_record *ph_r) {
+    int len, i, ptr;
+    
+    phist_len(ph, &len);
+    assert(t >= 0 && t < len);
+
+    ptr = ph->head;
+    for(i = 0; i < t; i++) {
+        ptr = HMINUS_ONE(ptr);
+    }
+
+    *ph_r = ph->records[ptr];
+}
+
+void phist_fault_sum(const struct phist *ph, int *sum) {
+    int ptr;
+
+    *sum = 0;
+    for(ptr = ph->tail; ptr != ph->head; ptr = HPLUS_ONE(ptr) ) {
+        *sum += (ph->records[ptr].fault == 1);
+    }
+}
+
+void phist_working_set(const struct phist *ph, int *pset, size_t psize) {
+    int ptr;
+    unsigned int i;
+    
+    for(i = 0; i < psize; i++) {
+        pset[i] = 0;
+    }
+    
+    for(ptr = ph->tail; ptr != ph->head; ptr = HPLUS_ONE(ptr) ) {
+        pset[ph->records[ptr].page] = 1;
+    } 
+}
+
+void phist_working_set_and_fault_sum(const struct phist *ph, int *pset, size_t psize, int *sum) {
+    int ptr;
+    unsigned int i;
+    
+    for(i = 0; i < psize; i++) {
+        pset[i] = 0;
+    }
+    *sum = 0;
+
+    for(ptr = ph->tail; ptr != ph->head; ptr = HPLUS_ONE(ptr) ) {
+        pset[ph->records[ptr].page] = 1;
+        *sum += (ph->records[ptr].fault == 1);
+    } 
+}
+
+void phist_print_records(const struct phist *ph) {
+    int ptr;
+
+    for(ptr = ph->tail; ptr != ph->head; ptr = HPLUS_ONE(ptr) ) {
+        printf("%d ", ph->records[ptr].page);       
+    }
+
+}
+
+
+static size_t pages_alloc(Pentry q[MAXPROCESSES], int proc) {
+    int page;
+    size_t amt = 0;
+
+    for(page = 0; page < MAXPROCPAGES; page++) {
+        if(q[proc].pages[page])
+            amt++;
+    }
+
+    return amt;
+}
+
+static void timestamps_init() {
+    int proc, page;
+
+    for(proc = 0; proc < MAXPROCESSES; proc++)
+        for(page = 0; page < MAXPROCPAGES; page++)
+            timestamps[proc][page] = 0; 
+
+}
+
+static void lru_page(Pentry q[MAXPROCESSES], int proc, uint32_t tick, int *evictee) {
+    int page;
+    uint32_t t;
+
+    *evictee = -1;
+    /* want to do better than or equal to
+     * a page that was referenced just 
+     * now. adding 1 to tick should
+     * ensure this function always
+     * returns a page
+     */
+    t = tick+1;  
+
+    for(page = 0; page < MAXPROCPAGES; page++) {
+        if(!q[proc].pages[page]) /* cant evict this */
+            continue;
+
+        if(timestamps[proc][page] < t) {
+            t = timestamps[proc][page];
+            *evictee = page;
+
+            if(t <= 1) /* cant do any better than that! */
+                break;
+        }
+    }           
+
+    if(*evictee < 0) {
+        printf("page for process %d w/ %u active pages not found with age < %u\n", proc, (unsigned int) pages_alloc(q, proc), tick);
+        fflush(stdout);
+        //endit();
+    }
+}
+
+
 
 struct proc_fault_pair {
     int proc;
@@ -42,7 +222,7 @@ static int cmp_pfp(const void * pfp1, const void * pfp2 ) {
 
 static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
     //static int last_realloc = 0;
-    int proc, page, state, evicted, i;
+    int proc, page, evicted, i;
     struct phist_record ph_r;
     int unsat[MAXPROCESSES]; /* if unsat[proc] >= 0, that proc wants page unsat[proc] */
     int amt_unsat = 0;
@@ -119,19 +299,14 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
          * on its way already or we just got it
          * started, so we are done with this process
          */
-        state = SWAPFAIL; /* if we are at max alloc, the state is swap fail */
+        //state = SWAPFAIL; /* if we are at max alloc, the state is swap fail */
         //if( (allocated[proc] <= pg_alloc[proc]) && pagein(proc, page, &state) )
-        if( pagein(proc, page, &state) ) {
+        if( pagein(proc, page) ) {
             proc_last_pagein[proc] = tick;
             free_phys--; /* if its on its way, its not available for use */
             continue;
         }   
 
-        /* either the page is swapping out or 
-         * there are no free physical pages
-         */
-        if(state == SWAPOUT) 
-            continue; /* just have to wait... */
 
         /* there are no free physical pages */
         if(allocated[proc] < 1 && (tick - proc_last_unsat[proc]) < 100 )
@@ -206,7 +381,7 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
 
             lru_page(q, proc, tick, &evicted);
             if(!pageout(proc, evicted) ) {
-                endit();
+               // endit();
             }
             pages_freed++;
             
@@ -245,7 +420,7 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
             proc_susp[proc] = 0;
             for(i = 0; i < MAXPROCPAGES; i++) {
                 if(proc_pset[proc][i]) {
-                    if( !pagein(proc, i, &state) )
+                    if( !pagein(proc, i) )
                         free_phys = 0;
                         
                     free_phys--;
@@ -284,4 +459,4 @@ void pageit(Pentry q[MAXPROCESSES]) {
     
     /* advance time for next pageit iteration */
     tick++;
-} 
+}
