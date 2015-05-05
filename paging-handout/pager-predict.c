@@ -7,9 +7,10 @@
 #include "simulator.h"
 
 
+#define HSIZE (1 << 11)
 #define MAX_PAGE_ALLOC 40
 #define REALLOC_BASE 50
-#define REALLOC_INTERVAL (REALLOC_BASE*100) /* ticks */
+#define REALLOC_INTERVAL (REALLOC_BASE*100)
 #define HPLUS_ONE(_element) ( (_element < (HSIZE-1) )? (_element+1) : 0)
 #define HMINUS_ONE(_element) ( (_element == 0 )? (HSIZE-1) : (_element-1) )
 
@@ -21,8 +22,6 @@ struct phist_record {
     int page;
     int fault;
 };
-
-#define HSIZE (1 << 11)
 
 struct phist {
     struct phist_record records[HSIZE];
@@ -160,23 +159,18 @@ static void lru_page(Pentry q[MAXPROCESSES], int proc, int tick, int *evictee) {
     int t;
 
     *evictee = -1;
-    /* want to do better than or equal to
-     * a page that was referenced just 
-     * now. adding 1 to tick should
-     * ensure this function always
-     * returns a page
-     */
+
     t = tick+1;  
 
     for(page = 0; page < MAXPROCPAGES; page++) {
-        if(!q[proc].pages[page]) /* cant evict this */
+        if(!q[proc].pages[page])
             continue;
 
         if(timestamps[proc][page] < t) {
             t = timestamps[proc][page];
             *evictee = page;
 
-            if(t <= 1) /* cant do any better than that! */
+            if(t <= 1)
                 break;
         }
     }           
@@ -184,7 +178,6 @@ static void lru_page(Pentry q[MAXPROCESSES], int proc, int tick, int *evictee) {
     if(*evictee < 0) {
         printf("page for process %d w/ %u active pages not found with age < %u\n", proc, (unsigned int) pages_alloc(q, proc), tick);
         fflush(stdout);
-        //endit();
     }
 }
 
@@ -209,10 +202,10 @@ static int cmp_pfp(const void * pfp1, const void * pfp2 ) {
 }
 
 static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
-    //static int last_realloc = 0;
+
     int proc, page, evicted, i;
     struct phist_record ph_r;
-    int unsat[MAXPROCESSES]; /* if unsat[proc] >= 0, that proc wants page unsat[proc] */
+    int unsat[MAXPROCESSES];
     int amt_unsat = 0;
     int allocated[MAXPROCESSES];
     int faults[MAXPROCESSES];
@@ -223,35 +216,24 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
     for(i = 0; i < MAXPROCESSES; i++)
         unsat[i] = -1;
 
-    /*if(last_realloc == 0)
-        last_realloc = 1;*/
-        
     for(proc = 0; proc < MAXPROCESSES; proc++) {
-        if(!q[proc].active) /* done if its not active */
+        if(!q[proc].active)
             continue;
 
         allocated[proc] = pages_alloc(q, proc);
-        free_phys -= allocated[proc]; /* anything thats already allocated isnt free */
+        free_phys -= allocated[proc];
         
         if(proc_susp[proc] > 0) 
             continue;
         
-        /*if(tick >= 150000) {
-
-            fgetc(stdin);
-        }*/
     
         page = q[proc].pc/PAGESIZE;
-        /* note this time for future eviction decisions */
+  
         timestamps[proc][page] = tick;
 
-        /*if(tick - last_realloc >= REALLOC_INTERVAL ) {
-            realloc_page_limits(q);
-            last_realloc = tick;
-        }*/
         
         ph_r.page = page;
-        /* done if the page is already in memory */
+
         if(q[proc].pages[page]) {
             ph_r.fault = 0;
             phist_push(&phist_arr[proc], &ph_r);
@@ -268,37 +250,22 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
             if(proc_pset[proc][i] == 1)
                 pset_sizes[proc]++;
         }
-        /* first: if there are processes out there with MORE
-         * allocated than is in their working set, they lose
-         * those pages
-         */
+
         if(pset_sizes[proc] < allocated[proc]) 
             for(i = 0; i < MAXPROCPAGES; i++) 
                 if(q[proc].pages[i] && proc_pset[proc][i] == 0) {
                     pageout(proc, i);
-                    pages_freed++; /* dont ++ free_phys cause these need 100 ticks to actually be available */
+                    pages_freed++;
                 }
 
-        //allocated[proc] = pages_alloc(q, proc);
-        
-        //if(tick >= 150000 ) printf("(%d) (%d/%d) %d: p%d => %d > %d \n", tick, faults[proc], HSIZE, proc, page, pset_sizes[proc], allocated[proc]);   
-        /* the page is not in memory.
-         * if pagein give 1 the page is either 
-         * on its way already or we just got it
-         * started, so we are done with this process
-         */
-        //state = SWAPFAIL; /* if we are at max alloc, the state is swap fail */
-        //if( (allocated[proc] <= pg_alloc[proc]) && pagein(proc, page, &state) )
         if( pagein(proc, page) ) {
             proc_last_pagein[proc] = tick;
-            free_phys--; /* if its on its way, its not available for use */
+            free_phys--;
             continue;
         }   
 
-
-        /* there are no free physical pages */
         if(allocated[proc] < 1 && (tick - proc_last_unsat[proc]) < 100 )
-            continue; /* must have at least one page to evict and we dont evict more than once per 100 ticks */
+            continue;
 
         unsat[proc] = page;
         amt_unsat++;
@@ -307,18 +274,7 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
 
     assert(free_phys >= 0);
     
-    
-    /* the idea here is to free as many pages as there were unsatisfied processes
-     * which may require suspending one or more processes */
     if(amt_unsat > 0) {     
-        /* get the working sets and page faults for all the 
-         * active processes so we know whats up */
-        /*for(proc = 0; proc < MAXPROCESSES; proc++) {
-            if(!q[proc].active)
-                continue;
-                
-            
-        }*/ 
         
         if(pages_freed >= amt_unsat)
             return;
@@ -327,9 +283,8 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
         for(i = 0; i < MAXPROCESSES; i++) {
             thrash_list[i].proc = i;
             thrash_list[i].faults = ((q[i].active && (proc_susp[i] == 0) )? faults[i] : -1);
-        } /* ordered by proc */
+        }
 
-        /* now reorder by faults */
         qsort(thrash_list, MAXPROCESSES, sizeof(struct proc_fault_pair), cmp_pfp);
         
         int k;
@@ -342,9 +297,8 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
                     }
     
                 if(unsat[thrash_list[MAXPROCESSES-1-k].proc] == 1)
-                    pages_freed++; /* dont worry about satisfying this process */
+                    pages_freed++;
                 
-                //printf("%d: (need %d pages) suspend thrasher w/ %d pages: %d = %d\n", tick, amt_unsat, allocated[thrash_list[MAXPROCESSES-1-k].proc], thrash_list[MAXPROCESSES-1-k].proc, thrash_list[MAXPROCESSES-1-k].faults);
                 fflush(stdout);
                 proc_susp[thrash_list[MAXPROCESSES-1-k].proc] = tick;   
             }
@@ -352,10 +306,7 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
             if(pages_freed >= amt_unsat)
                 return;
         }
-            
 
-        /* free a page from each unsatisfied process until
-         * we have free at least amt_unsat pages */
         for(proc = 0; proc < MAXPROCESSES; proc++) {
             if(unsat[proc] < 0)
                 continue;
@@ -363,13 +314,9 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
             if(allocated[proc] < 1)
                 continue;
                 
-            //if(pset_size > allocated)
-            //if(faults < 1000)
-            //if(pset_sizes[proc] > pages_alloc(q, proc) ) printf("(%d) (%d/%d) %d: p%d => %d > %d \n", tick, faults[proc], HSIZE, proc, unsat[proc], pset_sizes[proc], pages_alloc(q, proc));  
-
             lru_page(q, proc, tick, &evicted);
             if(!pageout(proc, evicted) ) {
-               // endit();
+
             }
             pages_freed++;
             
@@ -378,14 +325,7 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
         }
     } /* amt_unsat > 0 */
     else if(free_phys > 0) {
-        /*printf("%d: %d FREE... susp: ", tick, free_phys);
-        for(i = 0; i < MAXPROCESSES; i++)
-            if(proc_susp[i] > 0)
-                printf("%d, ", i);
-        fputc('\n', stdout);*/
 
-        /* unsuspend a process which has less or equal to 
-         * the number of free pages in its working set  */
         for(proc = 0; proc < MAXPROCESSES; proc++) {
             int wset_size = 0;
             if(proc_susp[proc] == 0)
@@ -404,7 +344,6 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
             if(wset_size > free_phys)
                 continue;
 
-            //printf("%d: unsusp %d with %d pages (%d free)\n", tick, proc, wset_size, free_phys); 
             proc_susp[proc] = 0;
             for(i = 0; i < MAXPROCPAGES; i++) {
                 if(proc_pset[proc][i]) {
@@ -422,9 +361,6 @@ static void pred_pageit(Pentry q[MAXPROCESSES], uint32_t tick) {
 
 void pageit(Pentry q[MAXPROCESSES]) {
     
-    /* tick starts at 1, so 0 means this is the first run
-     * or an overflow. either way, reset timestamps.
-     */ 
     if(tick < 1) {
         int i;
         
@@ -443,7 +379,5 @@ void pageit(Pentry q[MAXPROCESSES]) {
     }   
     
     pred_pageit(q, tick);
-    
-    /* advance time for next pageit iteration */
     tick++;
 }

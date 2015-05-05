@@ -1,8 +1,5 @@
-#include <errno.h>
 #include <stdio.h> 
 #include <stdlib.h>
-#include <stdint.h>
-#include <assert.h>
 
 #include "simulator.h"
 
@@ -46,12 +43,6 @@ static void lru_page(Pentry q[MAXPROCESSES],int proc,int tick,int *evictee)
                 break;
         }
     }
-
-    if(*evictee<0)
-    {
-        printf("page for process %d w/ %u active pages not found with age < %u\n",proc,(unsigned int)pages_alloc(q,proc),tick);
-        fflush(stdout);
-    }
 }
     
 static void lru_pageit(Pentry q[MAXPROCESSES],int tick)
@@ -61,7 +52,7 @@ static void lru_pageit(Pentry q[MAXPROCESSES],int tick)
     for(proc=0;proc<MAXPROCESSES;proc++)
     {
         pg=q[proc].pc/PAGESIZE;
-        timestamps[proc][pg]=tick; 
+        timestamps[proc][pg]=tick;
         
         if(pagein(proc,pg))
             continue;
@@ -76,7 +67,7 @@ static void lru_pageit(Pentry q[MAXPROCESSES],int tick)
 
 void term()
 {
-    printf("final tick value was %d\n",tick);  
+    printf("Final tick value = %d\n",tick);  
 }
 
 void pageit(Pentry q[MAXPROCESSES])
