@@ -13,6 +13,23 @@
 #include <csignal>
 #include <mqueue.h>
 
+#include<ncurses.h>
+#include<unistd.h>
+#include<panel.h>
+#include<cstdlib>
+#include<cstring>
+#include<utility> //for std::pair
+#include<stdexcept>
+#include<ncurses.h>
+#include<panel.h>
+#include<cstdlib>
+#include<cstring>
+#include<utility> //for std::pair
+#include<stdexcept>
+
+#include"goldchase.h"
+#include"Screen.h"
+
 #include "goldchase.h"
 #include "Map.h"
 
@@ -48,6 +65,22 @@ int *p_map;	//towards mmap usage
 char m[2080];
 Map goldMine(map,26,80);
 
+
+//Reused code [hackish]
+std::pair<int,int> _getScreenSize()
+{
+  int x,y;
+  getmaxyx(stdscr,y,x);
+  return std::pair<int,int>(y,x);
+}
+
+
+//Reused code [hackish]
+void panelRefresh()
+{
+  update_panels();
+  doupdate();
+}
 
 //Main
 int main(int argc, char** argv)
@@ -482,8 +515,33 @@ int main(int argc, char** argv)
 
 		else if(a=='b')
 		{
-			goldMine.takeNotice();
-			//broadcastMsg(plid);
+			int screenHeight,screenWidth;
+			std::pair<int,int> maxes=_getScreenSize();
+			screenHeight=maxes.first;
+			screenWidth=maxes.second;
+
+			char *myNote;
+			const char* inst="Enter message:";
+			const char* dismiss="Press enter to send";
+			int greater=strlen(inst)>strlen(dismiss) ? strlen(inst) : strlen(dismiss);
+			int ycoord= screenHeight>1 ? screenHeight/2-2 : 0;
+			int xcoord=screenWidth>greater ? screenWidth/2-greater/2-1 : 0;
+			WINDOW* dialog=newwin(5,greater+4,ycoord,xcoord);
+			PANEL* dialog_panel=new_panel(dialog);
+			box(dialog,0,0);
+
+			mvwprintw(dialog,1,1+(greater-strlen(inst))/2,inst);
+			wscanw(dialog,myNote);
+			mvwprintw(dialog,3,1+(greater-strlen(dismiss))/2,dismiss);
+			panelRefresh();
+			do;
+			while(getch()!='\n');
+			del_panel(dialog_panel);
+			delwin(dialog);
+			panelRefresh();
+
+			goldMine.postNotice(myNote);
+			goldMine.drawMap();
 		}
 
 		if(win==1)

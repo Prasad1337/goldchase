@@ -13,7 +13,7 @@ class Map {
     Map(const char* mapmem, int l, int w);
     void drawMap();
     void postNotice(const char* msg);
-    void takeNotice();
+    void takeNotice(char **myNote);
     int getKey();
   private:
     char operator()(int y, int x);

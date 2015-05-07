@@ -31,9 +31,9 @@ void Map::postNotice(const char* msg)
   theMap.notice(msg);
 }
 
-void Map::takeNotice()
+void Map::takeNotice(char **myNote)
 {
-  theMap.note();
+  theMap.note(myNote);
 }
 
 //Calculate offset into memory array

@@ -81,24 +81,23 @@ void Screen::notice(const char* msg)
 
 }
 
-void Screen::note()
+void Screen::note(char **myNote)
 {
-  char *msg;
-  const char* dismiss="Press enter key to send";
   const char* inst="Enter message:";
-  int greater=strlen(dismiss);
+  const char* dismiss="Press spacebar to dismiss";
+  int greater=strlen(inst)>strlen(dismiss) ? strlen(inst) : strlen(dismiss);
   int ycoord= screenHeight>1 ? screenHeight/2-2 : 0;
   int xcoord=screenWidth>greater ? screenWidth/2-greater/2-1 : 0;
   WINDOW* dialog=newwin(5,greater+4,ycoord,xcoord);
   PANEL* dialog_panel=new_panel(dialog);
     box(dialog,0,0);
 
-  mvwprintw(dialog,1,1+(greater-strlen(dismiss))/2,inst);
-  mvwscanw(dialog,2,1+(greater-strlen(msg))/2,msg);
+  mvwprintw(dialog,1,1+(greater-strlen(inst))/2,inst);
+  wscanw(dialog,*myNote);
   mvwprintw(dialog,3,1+(greater-strlen(dismiss))/2,dismiss);
   panelRefresh();
   do;
-    while(getch()!='\r');
+    while(getch()!=' ');
   del_panel(dialog_panel);
   delwin(dialog);
   panelRefresh();
