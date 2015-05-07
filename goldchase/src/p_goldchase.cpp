@@ -526,6 +526,8 @@ int main(int argc, char** argv)
 
 			goldMine.postNotice(myNote);
 			goldMine.drawMap();
+
+			broadcastMsg(plid);
 		}
 
 		if(win==1)
