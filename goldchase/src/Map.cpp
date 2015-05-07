@@ -31,11 +31,6 @@ void Map::postNotice(const char* msg)
   theMap.notice(msg);
 }
 
-void Map::takeNotice(char **myNote)
-{
-  theMap.note(myNote);
-}
-
 //Calculate offset into memory array
 char Map::operator()(int y, int x)
 {

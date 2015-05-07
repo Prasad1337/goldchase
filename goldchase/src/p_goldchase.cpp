@@ -13,25 +13,16 @@
 #include <csignal>
 #include <mqueue.h>
 
-#include<ncurses.h>
-#include<unistd.h>
-#include<panel.h>
-#include<cstdlib>
-#include<cstring>
-#include<utility> //for std::pair
-#include<stdexcept>
-#include<ncurses.h>
-#include<panel.h>
-#include<cstdlib>
-#include<cstring>
-#include<utility> //for std::pair
-#include<stdexcept>
-
-#include"goldchase.h"
-#include"Screen.h"
+#include <ncurses.h>
+#include <panel.h>
+#include <cstdlib>
+#include <cstring>
+#include <utility> //for std::pair
+#include <stdexcept>
 
 #include "goldchase.h"
 #include "Map.h"
+#include "Screen.h"
 
 
 //Macros
@@ -74,13 +65,6 @@ std::pair<int,int> _getScreenSize()
   return std::pair<int,int>(y,x);
 }
 
-
-//Reused code [hackish]
-void panelRefresh()
-{
-  update_panels();
-  doupdate();
-}
 
 //Main
 int main(int argc, char** argv)
@@ -533,12 +517,12 @@ int main(int argc, char** argv)
 			mvwprintw(dialog,1,1+(greater-strlen(inst))/2,inst);
 			wscanw(dialog,myNote);
 			mvwprintw(dialog,3,1+(greater-strlen(dismiss))/2,dismiss);
-			panelRefresh();
+			goldMine.drawMap();
 			do;
 			while(getch()!='\n');
 			del_panel(dialog_panel);
 			delwin(dialog);
-			panelRefresh();
+			goldMine.drawMap();
 
 			goldMine.postNotice(myNote);
 			goldMine.drawMap();
