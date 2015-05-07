@@ -31,6 +31,11 @@ void Map::postNotice(const char* msg)
   theMap.notice(msg);
 }
 
+void Map::takeNotice()
+{
+  theMap.note();
+}
+
 //Calculate offset into memory array
 char Map::operator()(int y, int x)
 {
@@ -44,26 +49,6 @@ char Map::operator()(int y, int x)
 //Draw and refresh map from memory array
 void Map::drawMap()
 {
-  /*int* p_map;
-  int result;
-  int p_shm=shm_open("/gc_shm", O_RDWR,S_IRUSR|S_IWUSR);
-  if(p_shm==-1)
-  {
-    p_shm=shm_open("/gc_shm", O_RDWR|O_CREAT|O_EXCL, S_IRUSR|S_IWUSR|S_IWGRP|S_IRGRP|S_IROTH|S_IWOTH);
-    if(p_shm==-1)
-    {
-      //cerr << "Critical fault!" << endl;
-      exit(1);
-
-      p_map = (int*)mmap(0,(11*sizeof(int)),PROT_READ|PROT_WRITE,MAP_SHARED,p_shm,0);
-      if (p_map == MAP_FAILED) {
-        close(p_shm);
-        //cerr << "Critical fault!" << endl;
-        exit(1);
-      }
-    }
-  }*/
-
 
   Map& mymap=*this; //ease referencing ourself
   bool upper, lower, left, right;

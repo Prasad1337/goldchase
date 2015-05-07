@@ -482,7 +482,8 @@ int main(int argc, char** argv)
 
 		else if(a=='b')
 		{
-			broadcastMsg(plid);
+			goldMine.takeNotice();
+			//broadcastMsg(plid);
 		}
 
 		if(win==1)

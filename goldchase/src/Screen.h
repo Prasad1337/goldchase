@@ -32,6 +32,7 @@ class Screen {
     void panelRefresh();
     void plot(int y, int x, chtype ch, unsigned int attr=A_NORMAL);
     void notice(const char* msg);
+    void note();
     int getKey();
 };
 
