@@ -26,15 +26,15 @@ using namespace std;
 
 
 //Function Prototypes
-void termHandler(int);	//Signal Handler
-void syncUp(int);	//SIGUSR1 Handler [for map sync]
-void sigWinner(int);	//Signal
-void bcastHandler(int);
+void termHandler(pid_t);	//Signal Handler
+void syncUp(pid_t);	//SIGUSR1 Handler [for map sync]
+void sigWinner(pid_t);	//Signal
+void bcastHandler(pid_t);
 
 void sync();
 void clearGold(int);
-void postWinner(int);
-void broadcastMsg(int);
+void postWinner(pid_t);
+void broadcastMsg(pid_t);
 
 
 //Global Variables
@@ -517,7 +517,7 @@ int main(int argc, char** argv)
 
 
 //Signal Handler
-void termHandler(int signum)
+void termHandler(pid_t signum)
 {
 	endwin();	//Destroy the map
 
@@ -549,14 +549,14 @@ void sync()
 
 	for(int i=11;i<=15;i++)
 	{
-		if(p_map[i]>0)	//signal all except calling process
+		if(p_map[i]>0)	//signal all processes
 			kill(p_map[i],SIGUSR1);
 	}
 }
 
 
 //Sync signal (SIGUSR1) handler
-void syncUp(int signum)
+void syncUp(pid_t signum)
 {
 	for(int i=0;i<=10;i++)
 	{
@@ -584,7 +584,8 @@ void syncUp(int signum)
 }
 
 
-void postWinner(int signum)
+//Function to post winner notice
+void postWinner(pid_t signum)
 {
 	signal(SIGUSR1,sigWinner);
 
@@ -596,7 +597,8 @@ void postWinner(int signum)
 }
 
 
-void sigWinner(int signum)
+//Winner notice signal handler
+void sigWinner(pid_t signum)
 {
 	if(p_map[16]==p_map[11])
 		goldMine.postNotice("Player 1 has won!");
@@ -611,7 +613,8 @@ void sigWinner(int signum)
 }
 
 
-void broadcastMsg(int signum)
+//Function to broadcast message to players
+void broadcastMsg(pid_t signum)
 {
 	signal(SIGUSR2,bcastHandler);
 
@@ -623,13 +626,15 @@ void broadcastMsg(int signum)
 }
 
 
-void bcastHandler(int signum)
+//Message broadcast signal (SIGUSR2) handler
+void bcastHandler(pid_t signum)
 {
-	goldMine.postNotice("test message");
+	
+	goldMine.drawMap();
 }
 
 
-//Clear gold from SHM on pickup
+//Function to clear gold from SHM on pickup
 void clearGold(int loc)
 {
 	for(int i=5;i<=10;i++)
