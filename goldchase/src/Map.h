@@ -14,6 +14,8 @@ class Map {
     void drawMap();
     void postNotice(const char* msg);
     int getKey();
+    unsigned int getPlayer(unsigned int PlayerMask);
+    std::string getMessage();
   private:
     char operator()(int y, int x);
     Screen theMap;

@@ -22,6 +22,49 @@ Map::Map(const char* mmem, int ylength, int xwidth)
   drawMap();
 }
 
+unsigned int Map::getPlayer(unsigned int playerMask)
+{
+  std::vector<int> players;
+  //Map shouldn't be aware of this mapping. 
+  //Oh, well.  So much to do and so little time.
+  if(G_PLR0 & playerMask)
+    players.push_back(1);
+  if(G_PLR1 & playerMask)
+    players.push_back(2);
+  if(G_PLR2 & playerMask)
+    players.push_back(3);
+  if(G_PLR3 & playerMask)
+    players.push_back(4);
+  if(G_PLR4 & playerMask)
+    players.push_back(5);
+  if(players.size()==0)
+  {
+    postNotice("ERROR: no players to select from!");
+    return 0;
+  }
+  int choice=theMap.getOrdinal("Player?",players);
+  switch(choice)
+  {
+    case 1:
+      return G_PLR0;
+    case 2:
+      return G_PLR1;
+    case 3:
+      return G_PLR2;
+    case 4:
+      return G_PLR3;
+    case 5:
+      return G_PLR4;
+    default:
+      return -1;
+  }
+}
+
+std::string Map::getMessage()
+{
+  return theMap.getText();
+}
+
 int Map::getKey()
 {
   return theMap.getKey();

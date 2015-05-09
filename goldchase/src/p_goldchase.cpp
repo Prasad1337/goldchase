@@ -13,13 +13,6 @@
 #include <csignal>
 #include <mqueue.h>
 
-#include <ncurses.h>
-#include <panel.h>
-#include <cstdlib>
-#include <cstring>
-#include <utility> //for std::pair
-#include <stdexcept>
-
 #include "goldchase.h"
 #include "Map.h"
 #include "Screen.h"
@@ -499,32 +492,7 @@ int main(int argc, char** argv)
 
 		else if(a=='b')
 		{
-			int screenHeight,screenWidth;
-			std::pair<int,int> maxes=_getScreenSize();
-			screenHeight=maxes.first;
-			screenWidth=maxes.second;
-
-			char *myNote;
-			const char* inst="Enter message:";
-			const char* dismiss="Press enter to send";
-			int greater=strlen(inst)>strlen(dismiss) ? strlen(inst) : strlen(dismiss);
-			int ycoord= screenHeight>1 ? screenHeight/2-2 : 0;
-			int xcoord=screenWidth>greater ? screenWidth/2-greater/2-1 : 0;
-			WINDOW* dialog=newwin(5,greater+4,ycoord,xcoord);
-			PANEL* dialog_panel=new_panel(dialog);
-			box(dialog,0,0);
-
-			mvwprintw(dialog,1,1+(greater-strlen(inst))/2,inst);
-			wscanw(dialog,myNote);
-			mvwprintw(dialog,3,1+(greater-strlen(dismiss))/2,dismiss);
-			goldMine.drawMap();
-			do;
-			while(getch()!='\n');
-			del_panel(dialog_panel);
-			delwin(dialog);
-			goldMine.drawMap();
-
-			goldMine.postNotice(myNote);
+			
 			goldMine.drawMap();
 
 			broadcastMsg(plid);
@@ -544,6 +512,8 @@ int main(int argc, char** argv)
 	
 	p_map[11+pl]=0;
 	sem_post(p_sem);
+	sync();
+
 	sem_getvalue(p_sem,&sem_val);
 	
 	//Last user out
@@ -567,8 +537,9 @@ void termHandler(pid_t signum)
 	endwin();	//Destroy the map
 
 	p_map[11+pl]=0;
-
 	sem_post(p_sem);
+	sync();
+
 	sem_getvalue(p_sem,&sem_val);
 
 	//Last user out
@@ -661,6 +632,9 @@ void sigWinner(pid_t signum)
 //Function to broadcast message to players
 void broadcastMsg(pid_t signum)
 {
+	std::string bS=goldMine.getMessage();
+	const char *cstr=bS.c_str();
+	goldMine.postNotice(cstr);
 	signal(SIGUSR2,bcastHandler);
 
 	for(int i=11;i<=15;i++)
