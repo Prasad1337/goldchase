@@ -642,7 +642,7 @@ void broadcastMsg(pid_t signum)
 	std::string bS=goldMine.getMessage();
 	const char *msg=bS.c_str();
 
-	mqd_t writequeue_fd; //message queue file descriptor
+	mqd_t writequeue_fd;
 	if((writequeue_fd=mq_open(mq_name.c_str(), O_WRONLY|O_NONBLOCK))==-1)
 	{
 		perror("mq_open");
@@ -668,26 +668,24 @@ void broadcastMsg(pid_t signum)
 //Message broadcast signal (SIGUSR2) handler
 void bcastHandler(pid_t signum)
 {
-	mqd_t readqueue_fd; //message queue file descriptor
+	mqd_t readqueue_fd;
 	string mq_name="/p_gc_bcast_mq";
 
 	struct sigevent mq_notification_event;
 	mq_notification_event.sigev_notify=SIGEV_SIGNAL;
 	mq_notification_event.sigev_signo=SIGUSR2;
-	
+
 	mq_notify(readqueue_fd, &mq_notification_event);
 
-	//read a message
 	int err;
 	char msg[121];
-	memset(msg, 0, 121);//set all characters to '\0'
+	memset(msg, 0, 121);
 	while((err=mq_receive(readqueue_fd, msg, 120, NULL))!=-1)
 	{
 		cout << "Message received: " << msg << endl;
-		memset(msg, 0, 121);//set all characters to '\0'
+		memset(msg, 0, 121);
 	}
-	//we exit while-loop when mq_receive returns -1
-	//if errno==EAGAIN that is normal: there is no message waiting
+
 	if(errno!=EAGAIN)
 	{
 		perror("mq_receive");
