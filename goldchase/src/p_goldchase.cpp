@@ -1,4 +1,4 @@
-//Header files included
+//Header file includes
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
@@ -32,13 +32,13 @@ using namespace std;
 //Function Prototypes
 void termHandler(pid_t);	//Signal Handler
 void syncUp(pid_t);	//SIGUSR1 Handler [for map sync]
-void sigWinner(pid_t);	//Signal
-void bcastHandler(pid_t);
+void sigWinner(pid_t);	//Signal winner
+void bcastHandler(pid_t);	//Broadcast signal handler
 
-void sync();
-void clearGold(int);
-void postWinner(pid_t);
-void broadcastMsg(pid_t);
+void sync();	//Sync all players function
+void clearGold(int);	//Clear gold from map
+void postWinner(pid_t);	//Post winner notice
+void broadcastMsg(pid_t);	//Broadcast message to player
 
 
 //Global Variables
@@ -635,20 +635,18 @@ void sigWinner(pid_t signum)
 //Function to broadcast message to players
 void broadcastMsg(pid_t signum)
 {
-	string mq_name="/p_gc_bcast_mq";
-
 	signal(SIGUSR2,bcastHandler);
+	string mq_name="/p_gc_msg_mq";
 
 	std::string bS=goldMine.getMessage();
 	const char *msg=bS.c_str();
 
 	mqd_t writequeue_fd;
-	if((writequeue_fd=mq_open(mq_name.c_str(), O_WRONLY|O_NONBLOCK))==-1)
+	if((writequeue_fd=mq_open(mq_name.c_str(), O_CREAT|O_WRONLY|O_NONBLOCK,0777,NULL))==-1)
 	{
 		perror("mq_open");
 		exit(1);
 	}
-	cerr << "fd=" << writequeue_fd << endl;
 
 	if(mq_send(writequeue_fd, msg, strlen(msg), 0)==-1)
 	{
@@ -659,7 +657,7 @@ void broadcastMsg(pid_t signum)
 
 	for(int i=11;i<=15;i++)
 	{
-		if(p_map[i]!=signum && p_map[i]>0)	//signal all except calling process
+		if(p_map[i]==signum)	//signal all except calling process
 			kill(p_map[i],SIGUSR2);
 	}
 }
@@ -668,29 +666,24 @@ void broadcastMsg(pid_t signum)
 //Message broadcast signal (SIGUSR2) handler
 void bcastHandler(pid_t signum)
 {
+	string mq_name="/p_gc_msg_mq";
 	mqd_t readqueue_fd;
-	string mq_name="/p_gc_bcast_mq";
 
-	struct sigevent mq_notification_event;
-	mq_notification_event.sigev_notify=SIGEV_SIGNAL;
-	mq_notification_event.sigev_signo=SIGUSR2;
-
-	mq_notify(readqueue_fd, &mq_notification_event);
-
-	int err;
-	char msg[121];
-	memset(msg, 0, 121);
-	while((err=mq_receive(readqueue_fd, msg, 120, NULL))!=-1)
+	if((readqueue_fd=mq_open(mq_name.c_str(), O_RDONLY|O_NONBLOCK))==-1)
 	{
-		cout << "Message received: " << msg << endl;
-		memset(msg, 0, 121);
+		perror("mq_open");
+		exit(1);
 	}
+
+	char *msg;
+	mq_receive(readqueue_fd, msg, 79, NULL);
 
 	if(errno!=EAGAIN)
 	{
 		perror("mq_receive");
 		exit(1);
 	}
+	mq_close(readqueue_fd);
 
 	goldMine.postNotice(msg);
 	goldMine.drawMap();
