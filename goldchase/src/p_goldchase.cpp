@@ -657,7 +657,7 @@ void broadcastMsg(pid_t signum)
 
 	for(int i=11;i<=15;i++)
 	{
-		if(p_map[i]==signum)	//signal all except calling process
+		if(p_map[i]!=signum && p_map[i]>0)	//signal all except calling process
 			kill(p_map[i],SIGUSR2);
 	}
 }
