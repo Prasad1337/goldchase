@@ -11,12 +11,15 @@
 #include <sys/types.h>
 #include <string.h>
 #include <csignal>
+#include <signal.h>
 #include <mqueue.h>
+#include <cstring>
+#include <cstdio>
+#include <errno.h>
+#include <cstdlib>
 
 #include "goldchase.h"
 #include "Map.h"
-#include "Screen.h"
-
 
 //Macros
 #define MAPSIZE (sizeof(int))
@@ -632,10 +635,27 @@ void sigWinner(pid_t signum)
 //Function to broadcast message to players
 void broadcastMsg(pid_t signum)
 {
-	std::string bS=goldMine.getMessage();
-	const char *cstr=bS.c_str();
-	goldMine.postNotice(cstr);
+	string mq_name="/p_gc_bcast_mq";
+
 	signal(SIGUSR2,bcastHandler);
+
+	std::string bS=goldMine.getMessage();
+	const char *msg=bS.c_str();
+
+	mqd_t writequeue_fd; //message queue file descriptor
+	if((writequeue_fd=mq_open(mq_name.c_str(), O_WRONLY|O_NONBLOCK))==-1)
+	{
+		perror("mq_open");
+		exit(1);
+	}
+	cerr << "fd=" << writequeue_fd << endl;
+
+	if(mq_send(writequeue_fd, msg, strlen(msg), 0)==-1)
+	{
+		perror("mq_send");
+		exit(1);
+	}
+	mq_close(writequeue_fd);
 
 	for(int i=11;i<=15;i++)
 	{
@@ -648,7 +668,33 @@ void broadcastMsg(pid_t signum)
 //Message broadcast signal (SIGUSR2) handler
 void bcastHandler(pid_t signum)
 {
+	mqd_t readqueue_fd; //message queue file descriptor
+	string mq_name="/p_gc_bcast_mq";
+
+	struct sigevent mq_notification_event;
+	mq_notification_event.sigev_notify=SIGEV_SIGNAL;
+	mq_notification_event.sigev_signo=SIGUSR2;
 	
+	mq_notify(readqueue_fd, &mq_notification_event);
+
+	//read a message
+	int err;
+	char msg[121];
+	memset(msg, 0, 121);//set all characters to '\0'
+	while((err=mq_receive(readqueue_fd, msg, 120, NULL))!=-1)
+	{
+		cout << "Message received: " << msg << endl;
+		memset(msg, 0, 121);//set all characters to '\0'
+	}
+	//we exit while-loop when mq_receive returns -1
+	//if errno==EAGAIN that is normal: there is no message waiting
+	if(errno!=EAGAIN)
+	{
+		perror("mq_receive");
+		exit(1);
+	}
+
+	goldMine.postNotice(msg);
 	goldMine.drawMap();
 }
 
@@ -665,3 +711,4 @@ void clearGold(int loc)
 		}
 	}
 }
+
