@@ -53,14 +53,6 @@ char m[2080];
 Map goldMine(map,26,80);
 
 
-//Reused code [hackish]
-std::pair<int,int> _getScreenSize()
-{
-  int x,y;
-  getmaxyx(stdscr,y,x);
-  return std::pair<int,int>(y,x);
-}
-
 
 //Main
 int main(int argc, char** argv)
@@ -134,7 +126,6 @@ int main(int argc, char** argv)
 	const char* px=m;
 
 	//Shared Memory
-
 	/* p_map reference
 		0-4 players 1-5
 		5-9 fool's gold
@@ -142,7 +133,6 @@ int main(int argc, char** argv)
 		11-15 process IDs
 		16 winner PID
 	*/
-
 	int result;
 	p_shm=shm_open("/gc_shm", O_RDWR,S_IRUSR|S_IWUSR);
 	if(p_shm==-1)
@@ -357,6 +347,15 @@ int main(int argc, char** argv)
 
 	//Load map
 	sync();
+
+	/***************** 			    	*****************
+	 *****************   !!! NOTE !!!   *****************
+	 *****************					*****************
+				Uncomment the comment below
+	 ***************** 			    	*****************
+	 *****************   !!! NOTE !!!   *****************
+	 *****************					****************/
+
 	//goldMine.postNotice("Game Start");
 	do
 	{
@@ -534,7 +533,7 @@ int main(int argc, char** argv)
 }
 
 
-//Signal Handler
+//Termination Signal Handler
 void termHandler(pid_t signum)
 {
 	endwin();	//Destroy the map
@@ -636,24 +635,25 @@ void sigWinner(pid_t signum)
 void broadcastMsg(pid_t signum)
 {
 	signal(SIGUSR2,bcastHandler);
-	string mq_name="/p_gc_msg_mq";
+	string mq_name="/p_gc_mq";
 
-	std::string bS=goldMine.getMessage();
+	string bS=goldMine.getMessage();
 	const char *msg=bS.c_str();
 
 	mqd_t writequeue_fd;
-	if((writequeue_fd=mq_open(mq_name.c_str(), O_CREAT|O_WRONLY|O_NONBLOCK,0777,NULL))==-1)
+	if((writequeue_fd=mq_open(mq_name.c_str(),O_CREAT|O_WRONLY|O_NONBLOCK,0777,NULL))==-1)
 	{
 		perror("mq_open");
 		exit(1);
 	}
 
-	if(mq_send(writequeue_fd, msg, strlen(msg), 0)==-1)
+	if(mq_send(writequeue_fd,msg,80,0)==-1)
 	{
 		perror("mq_send");
 		exit(1);
 	}
 	mq_close(writequeue_fd);
+
 
 	for(int i=11;i<=15;i++)
 	{
@@ -663,22 +663,22 @@ void broadcastMsg(pid_t signum)
 }
 
 
+//	BUGGY !
 //Message broadcast signal (SIGUSR2) handler
 void bcastHandler(pid_t signum)
 {
-	string mq_name="/p_gc_msg_mq";
+	string mq_name="/p_gc_mq";
 	mqd_t readqueue_fd;
 
-	if((readqueue_fd=mq_open(mq_name.c_str(), O_RDONLY|O_NONBLOCK))==-1)
+	if((readqueue_fd=mq_open(mq_name.c_str(),O_RDONLY|O_NONBLOCK))==-1)
 	{
 		perror("mq_open");
 		exit(1);
 	}
 
-	char *msg;
-	mq_receive(readqueue_fd, msg, 79, NULL);
+	char *msg=(char*)malloc(80);
 
-	if(errno!=EAGAIN)
+	if(mq_receive(readqueue_fd,msg,80,0)==-1)
 	{
 		perror("mq_receive");
 		exit(1);
@@ -686,7 +686,7 @@ void bcastHandler(pid_t signum)
 	mq_close(readqueue_fd);
 
 	goldMine.postNotice(msg);
-	goldMine.drawMap();
+	free(msg);
 }
 
 
