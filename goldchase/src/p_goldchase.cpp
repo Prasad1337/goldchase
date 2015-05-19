@@ -40,7 +40,6 @@ void termHandler(pid_t);	//Signal Handler
 void syncUp(pid_t);	//SIGUSR1 Handler [for map sync]
 void sigWinner(pid_t);	//Signal winner
 void msgHandler(pid_t);	//Handler to message specific player [SIGUSR2]
-void bcastHandler(pid_t);	//Broadcast signal handler [SIGUSR2]
 
 
 //Global Variables
