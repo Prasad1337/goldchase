@@ -485,18 +485,20 @@ int main(int argc, char** argv)
 			}
 		}
 
+		else if(a=='m')
+		{
+			int recp=goldMine.getPlayer(plid);
+
+			sendMsg(recp);
+		}
+
 		else if(a=='b')
 		{
-			
 			goldMine.drawMap();
 
 			broadcastMsg(plid);
 		}
 
-		else if(a=='m')
-		{
-			int xx=goldMine.getPlayer(plid);
-		}
 
 		if(win==1)
 		{
@@ -666,7 +668,7 @@ void sendMsg(pid_t signum)
 }
 
 
-//Function to broadcast message to players
+//Function to broadcast message to all players
 void broadcastMsg(pid_t signum)
 {
 	signal(SIGUSR2,msgHandler);
@@ -684,13 +686,13 @@ void broadcastMsg(pid_t signum)
 	mqd_t writequeue_fd;
 	if((writequeue_fd=mq_open(mq_name.c_str(),O_CREAT|O_WRONLY|O_NONBLOCK,0644,&attr))==-1)
 	{
-		perror("mq_open");
+		perror("mq_open error!");
 		exit(1);
 	}
 
 	if(mq_send(writequeue_fd,msg,80,0)==-1)
 	{
-		perror("mq_send");
+		perror("mq_send error!");
 		exit(1);
 	}
 	mq_close(writequeue_fd);
@@ -712,7 +714,7 @@ void msgHandler(pid_t signum)
 
 	if((readqueue_fd=mq_open(mq_name.c_str(),O_RDONLY|O_NONBLOCK))==-1)
 	{
-		perror("mq_open");
+		perror("mq_open error!");
 		exit(1);
 	}
 
@@ -720,7 +722,7 @@ void msgHandler(pid_t signum)
 
 	if(mq_receive(readqueue_fd,msg,80,0)==-1)
 	{
-		perror("mq_receive");
+		perror("mq_receive error!");
 		exit(1);
 	}
 	mq_close(readqueue_fd);
