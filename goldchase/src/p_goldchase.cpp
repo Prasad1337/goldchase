@@ -10,6 +10,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <string.h>
 #include <csignal>
 #include <signal.h>
@@ -24,6 +25,7 @@
 
 //Macros
 #define MAPSIZE (sizeof(int))
+#define SOCK_NAME "p_gc_socket"
 
 
 //Standard namespace convention
@@ -262,11 +264,52 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	
 	//Storing PID in SHM
 	plid=(int)getpid();
 	p_map[11+pl]=plid;
-	
+
+	//Server
+	sem_getvalue(p_sem,&sem_val);
+	if(sem_val>=4)
+	{
+		/*int msgsock, rval;
+        struct sockaddr_un server;
+        char buf[1024];
+
+
+        int sock = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (sock < 0) {
+            perror("opening stream socket");
+            exit(1);
+        }
+        server.sun_family = AF_UNIX;
+        strcpy(server.sun_path, SOCK_NAME);
+
+        //BUGGY
+        if (bind(sock, (struct sockaddr *) &server, sizeof(struct sockaddr_un))) {
+            perror("binding stream socket");
+            exit(1);
+        }
+        printf("Socket has name %s\n", server.sun_path);
+        listen(sock, 5);
+        for (;;) {
+            msgsock = accept(sock, 0, 0);
+            if (msgsock == -1)
+                perror("accept");
+            else do {
+                bzero(buf, sizeof(buf));
+                if ((rval = read(msgsock, buf, 1024)) < 0)
+                    perror("reading stream message");
+                else if (rval == 0)
+                    printf("Ending connection\n");
+                else
+                    printf("-->%s\n", buf);
+            } while (rval > 0);
+            close(msgsock);
+        }
+        close(sock);
+        unlink(SOCK_NAME);*/
+	}	
 
 	const char* px1=m;
 	int ncntr=0,flag=0,dc=1;
@@ -611,15 +654,42 @@ void syncUp(pid_t signum)
 }
 
 
-void sockXfer(pid_t)	//Transfer map data over socket
+//Transfer map data over the network
+void sockXfer(pid_t)
 {
-	string Xstr="";
+	/*struct sockaddr_un server;
 
+	string Xstr="";
 	for(int i=0;i<=10;i++)
 	{
 		Xstr+=p_map[i]+" ";
 	}
+
+	const char* Xc=Xstr.c_str();
+
+	int sock = socket(AF_UNIX,SOCK_STREAM,0);
+	if(sock<0)
+	{
+		perror("opening stream socket");
+		exit(1);
+	}
 	
+	server.sun_family=AF_UNIX;
+	strcpy(server.sun_path,"localhost");
+
+	if (connect(sock,(struct sockaddr *)&server,sizeof(struct sockaddr_un))<0)
+	{
+		close(sock);
+		perror("connecting stream socket");
+		exit(1);
+	}
+
+	if (write(sock,Xc,sizeof(Xc))<0)
+	{
+		perror("writing on stream socket");
+		close(sock);
+	}
+*/
 }
 
 
@@ -696,10 +766,10 @@ void broadcastMsg(pid_t signum)
 	struct mq_attr attr;
 	string mq_name="/p_gc_mq";
 
-	attr.mq_flags = 0;
-    attr.mq_maxmsg = 10;
-    attr.mq_msgsize = 80;
-    attr.mq_curmsgs = 0;
+	attr.mq_flags=0;
+    attr.mq_maxmsg=10;
+    attr.mq_msgsize=80;
+    attr.mq_curmsgs=0;
 
 	string bS=goldMine.getMessage();
 	const char *msg=bS.c_str();
