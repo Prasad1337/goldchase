@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <string.h>
 #include <csignal>
 #include <signal.h>
@@ -30,16 +31,17 @@ using namespace std;
 
 
 //Function Prototypes
-void sync();	//Sync all players function
-void clearGold(int);	//Clear gold from map
+void sync(pid_t);	//Sync all players function
 void postWinner(pid_t);	//Post winner notice
 void sendMsg(pid_t);	//Message specific player
 void broadcastMsg(pid_t);	//Broadcast message to player
+void clearGold(int);	//Clear gold from map
 
 void termHandler(pid_t);	//Signal Handler
 void syncUp(pid_t);	//SIGUSR1 Handler [for map sync]
 void sigWinner(pid_t);	//Signal winner
 void msgHandler(pid_t);	//Handler to message specific player [SIGUSR2]
+void sockXfer(pid_t);	//Transfer map data over socket
 
 
 //Global Variables
@@ -127,7 +129,7 @@ int main(int argc, char** argv)
 	const char* px=m;
 
 	//Shared Memory
-	/* p_map reference
+	/* 'p_map' reference:
 		0-4 players 1-5
 		5-9 fool's gold
 		10 real gold
@@ -347,12 +349,12 @@ int main(int argc, char** argv)
 	int win=0;
 
 	//Load map
-	sync();
+	sync(plid);
 
 	goldMine.postNotice("Game Start");
 	do
 	{
-		sync();
+		sync(plid);
 
 		a=goldMine.getKey();
 		
@@ -488,14 +490,11 @@ int main(int argc, char** argv)
 		else if(a=='m')
 		{
 			int recp=goldMine.getPlayer(plid);
-
 			sendMsg(recp);
 		}
 
 		else if(a=='b')
 		{
-			goldMine.drawMap();
-
 			broadcastMsg(plid);
 		}
 
@@ -507,14 +506,14 @@ int main(int argc, char** argv)
 			win=0;
 		}
 
-		sync();
+		sync(plid);
 
 	}while(a!='Q');
 	
 	
 	p_map[11+pl]=0;
 	sem_post(p_sem);
-	sync();
+	sync(plid);
 
 	sem_getvalue(p_sem,&sem_val);
 	
@@ -542,7 +541,7 @@ void termHandler(pid_t signum)
 
 	p_map[11+pl]=0;
 	sem_post(p_sem);
-	sync();
+	sync(signum);
 
 	sem_getvalue(p_sem,&sem_val);
 
@@ -565,14 +564,20 @@ void termHandler(pid_t signum)
 
 
 //Function to start sync
-void sync()
+void sync(pid_t signum)
 {	
 	signal(SIGUSR1,syncUp);	//signal to sync up
+	signal(SIGHUP,sockXfer);	//Send map data over socket
 
 	for(int i=11;i<=15;i++)
 	{
 		if(p_map[i]>0)	//signal all processes
+		{
 			kill(p_map[i],SIGUSR1);
+
+			if(p_map[i]!=signum)
+				kill(p_map[i],SIGHUP);
+		}
 	}
 }
 
@@ -603,6 +608,18 @@ void syncUp(pid_t signum)
 	}
 
 	goldMine.drawMap();
+}
+
+
+void sockXfer(pid_t)	//Transfer map data over socket
+{
+	string Xstr="";
+
+	for(int i=0;i<=10;i++)
+	{
+		Xstr+=p_map[i]+" ";
+	}
+	
 }
 
 
@@ -664,7 +681,11 @@ void sendMsg(pid_t signum)
 	}
 	mq_close(writequeue_fd);
 
-	kill(signum,SIGUSR2);
+	for(int i=11;i<=15;i++)
+	{
+		if(map[p_map[i]]==signum && p_map[i]>0)	//signal all except calling process
+			kill(p_map[i],SIGUSR2);
+	}
 }
 
 
