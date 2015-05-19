@@ -30,15 +30,17 @@ using namespace std;
 
 
 //Function Prototypes
-void termHandler(pid_t);	//Signal Handler
-void syncUp(pid_t);	//SIGUSR1 Handler [for map sync]
-void sigWinner(pid_t);	//Signal winner
-void bcastHandler(pid_t);	//Broadcast signal handler
-
 void sync();	//Sync all players function
 void clearGold(int);	//Clear gold from map
 void postWinner(pid_t);	//Post winner notice
+void sendMsg(pid_t);	//Message specific player
 void broadcastMsg(pid_t);	//Broadcast message to player
+
+void termHandler(pid_t);	//Signal Handler
+void syncUp(pid_t);	//SIGUSR1 Handler [for map sync]
+void sigWinner(pid_t);	//Signal winner
+void msgHandler(pid_t);	//Handler to message specific player [SIGUSR2]
+void bcastHandler(pid_t);	//Broadcast signal handler [SIGUSR2]
 
 
 //Global Variables
@@ -348,15 +350,7 @@ int main(int argc, char** argv)
 	//Load map
 	sync();
 
-	/***************** 			    	*****************
-	 *****************   !!! NOTE !!!   *****************
-	 *****************					*****************
-				Uncomment the comment below
-	 ***************** 			    	*****************
-	 *****************   !!! NOTE !!!   *****************
-	 *****************					****************/
-
-	//goldMine.postNotice("Game Start");
+	goldMine.postNotice("Game Start");
 	do
 	{
 		sync();
@@ -500,6 +494,11 @@ int main(int argc, char** argv)
 			broadcastMsg(plid);
 		}
 
+		else if(a=='m')
+		{
+			int xx=goldMine.getPlayer(plid);
+		}
+
 		if(win==1)
 		{
 			p_map[16]=plid;
@@ -526,6 +525,8 @@ int main(int argc, char** argv)
 		
 		close(p_shm);
 		shm_unlink("/gc_shm");
+
+		mq_unlink("/p_gc_mq");
 	}
 	
 	return 0;
@@ -554,6 +555,8 @@ void termHandler(pid_t signum)
 		
 		close(p_shm);
 		shm_unlink("/gc_shm");
+
+		mq_unlink("/p_gc_mq");
 	}
 
 	exit(0);
@@ -631,17 +634,56 @@ void sigWinner(pid_t signum)
 }
 
 
-//Function to broadcast message to players
-void broadcastMsg(pid_t signum)
+//Function to send message to specific player
+void sendMsg(pid_t signum)
 {
-	signal(SIGUSR2,bcastHandler);
+	signal(SIGUSR2,msgHandler);
+	struct mq_attr attr;
 	string mq_name="/p_gc_mq";
+
+	attr.mq_flags = 0;
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = 80;
+    attr.mq_curmsgs = 0;
 
 	string bS=goldMine.getMessage();
 	const char *msg=bS.c_str();
 
 	mqd_t writequeue_fd;
-	if((writequeue_fd=mq_open(mq_name.c_str(),O_CREAT|O_WRONLY|O_NONBLOCK,0777,NULL))==-1)
+	if((writequeue_fd=mq_open(mq_name.c_str(),O_CREAT|O_WRONLY|O_NONBLOCK,0644,&attr))==-1)
+	{
+		perror("mq_open");
+		exit(1);
+	}
+
+	if(mq_send(writequeue_fd,msg,80,0)==-1)
+	{
+		perror("mq_send");
+		exit(1);
+	}
+	mq_close(writequeue_fd);
+
+	kill(signum,SIGUSR2);
+}
+
+
+//Function to broadcast message to players
+void broadcastMsg(pid_t signum)
+{
+	signal(SIGUSR2,msgHandler);
+	struct mq_attr attr;
+	string mq_name="/p_gc_mq";
+
+	attr.mq_flags = 0;
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = 80;
+    attr.mq_curmsgs = 0;
+
+	string bS=goldMine.getMessage();
+	const char *msg=bS.c_str();
+
+	mqd_t writequeue_fd;
+	if((writequeue_fd=mq_open(mq_name.c_str(),O_CREAT|O_WRONLY|O_NONBLOCK,0644,&attr))==-1)
 	{
 		perror("mq_open");
 		exit(1);
@@ -663,9 +705,8 @@ void broadcastMsg(pid_t signum)
 }
 
 
-//	BUGGY !
-//Message broadcast signal (SIGUSR2) handler
-void bcastHandler(pid_t signum)
+//Message send or broadcast signal (SIGUSR2) handler
+void msgHandler(pid_t signum)
 {
 	string mq_name="/p_gc_mq";
 	mqd_t readqueue_fd;
@@ -702,4 +743,3 @@ void clearGold(int loc)
 		}
 	}
 }
-
