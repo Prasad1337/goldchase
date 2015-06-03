@@ -1,9 +1,8 @@
 #include <iostream>
 
+using namespace std;
 
-template<typename T>
-int READ(int fd,T* obj_ptr,int count)
+int main()
 {
 	
-	return 0;
 }
