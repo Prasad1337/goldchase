@@ -9,12 +9,11 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/un.h>
 #include <string.h>
 #include <csignal>
 #include <signal.h>
-#include <mqueue.h>
+#include <mqueue.h>	
 #include <cstring>
 #include <cstdio>
 #include <errno.h>
@@ -25,7 +24,6 @@
 
 //Macros
 #define MAPSIZE (sizeof(int))
-#define SOCK_NAME "p_gc_socket"
 
 
 //Standard namespace convention
@@ -43,7 +41,6 @@ void termHandler(pid_t);	//Signal Handler
 void syncUp(pid_t);	//SIGUSR1 Handler [for map sync]
 void sigWinner(pid_t);	//Signal winner
 void msgHandler(pid_t);	//Handler to message specific player [SIGUSR2]
-void sockXfer(pid_t);	//Transfer map data over socket
 
 
 //Global Variables
@@ -54,6 +51,7 @@ int pl=0;	//Player number [Player #1 by default]
 char map[2080];	//map grid
 int mdump[11];	//local map placeholder
 int *p_map;	//towards mmap usage
+int win=0;	//global game win
 char m[2080];
 Map goldMine(map,26,80);
 
@@ -268,51 +266,9 @@ int main(int argc, char** argv)
 	plid=(int)getpid();
 	p_map[11+pl]=plid;
 
-	//Server
-	sem_getvalue(p_sem,&sem_val);
-	if(sem_val>=4)
-	{
-		/*int msgsock, rval;
-        struct sockaddr_un server;
-        char buf[1024];
-
-
-        int sock = socket(AF_UNIX, SOCK_STREAM, 0);
-        if (sock < 0) {
-            perror("opening stream socket");
-            exit(1);
-        }
-        server.sun_family = AF_UNIX;
-        strcpy(server.sun_path, SOCK_NAME);
-
-        //BUGGY
-        if (bind(sock, (struct sockaddr *) &server, sizeof(struct sockaddr_un))) {
-            perror("binding stream socket");
-            exit(1);
-        }
-        printf("Socket has name %s\n", server.sun_path);
-        listen(sock, 5);
-        for (;;) {
-            msgsock = accept(sock, 0, 0);
-            if (msgsock == -1)
-                perror("accept");
-            else do {
-                bzero(buf, sizeof(buf));
-                if ((rval = read(msgsock, buf, 1024)) < 0)
-                    perror("reading stream message");
-                else if (rval == 0)
-                    printf("Ending connection\n");
-                else
-                    printf("-->%s\n", buf);
-            } while (rval > 0);
-            close(msgsock);
-        }
-        close(sock);
-        unlink(SOCK_NAME);*/
-	}	
-
 	const char* px1=m;
 	int ncntr=0,flag=0,dc=1;
+	
 	
 	//Random drop placement generator
 	for(int i=0;i<tot;i++)
@@ -389,7 +345,6 @@ int main(int argc, char** argv)
 
 
 	int a=0;	//input character
-	int win=0;
 
 	//Load map
 	sync(plid);
@@ -610,7 +565,6 @@ void termHandler(pid_t signum)
 void sync(pid_t signum)
 {	
 	signal(SIGUSR1,syncUp);	//signal to sync up
-	signal(SIGHUP,sockXfer);	//Send map data over socket
 
 	for(int i=11;i<=15;i++)
 	{
@@ -654,48 +608,10 @@ void syncUp(pid_t signum)
 }
 
 
-//Transfer map data over the network
-void sockXfer(pid_t)
-{
-	/*struct sockaddr_un server;
-
-	string Xstr="";
-	for(int i=0;i<=10;i++)
-	{
-		Xstr+=p_map[i]+" ";
-	}
-
-	const char* Xc=Xstr.c_str();
-
-	int sock = socket(AF_UNIX,SOCK_STREAM,0);
-	if(sock<0)
-	{
-		perror("opening stream socket");
-		exit(1);
-	}
-	
-	server.sun_family=AF_UNIX;
-	strcpy(server.sun_path,"localhost");
-
-	if (connect(sock,(struct sockaddr *)&server,sizeof(struct sockaddr_un))<0)
-	{
-		close(sock);
-		perror("connecting stream socket");
-		exit(1);
-	}
-
-	if (write(sock,Xc,sizeof(Xc))<0)
-	{
-		perror("writing on stream socket");
-		close(sock);
-	}
-*/
-}
-
-
 //Function to post winner notice
 void postWinner(pid_t signum)
 {
+	win=0;
 	signal(SIGUSR1,sigWinner);
 
 	for(int i=11;i<=15;i++)
@@ -772,6 +688,7 @@ void broadcastMsg(pid_t signum)
     attr.mq_curmsgs=0;
 
 	string bS=goldMine.getMessage();
+	
 	const char *msg=bS.c_str();
 
 	mqd_t writequeue_fd;
